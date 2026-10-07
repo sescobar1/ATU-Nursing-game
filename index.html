@@ -294,7 +294,7 @@ function speak(t,onend=null,force=false){
   if(currentUtt!==token)return;
   if(i>=parts.length){finishSpeech();return;}
   const text=parts[i++],u=new SpeechSynthesisUtterance(text);
-  u.rate=1;u.pitch=1;if(selectedVoice){u.voice=selectedVoice;u.lang=selectedVoice.lang;}
+  u.rate=1;u.pitch=1;u.volume=1;if(selectedVoice){u.voice=selectedVoice;u.lang=selectedVoice.lang;}
   let fired=false;
   const advance=()=>{if(fired)return;fired=true;clearTimeout(speechWatch);if(currentUtt===token)setTimeout(next,90);};
   u.onend=advance;u.onerror=advance;
@@ -311,13 +311,17 @@ function stopSpeaking(){if(hasSpeech)speechSynthesis.cancel();finishSpeech();}
 function silenceSpeech(){pendingSpeech=null;currentUtt=null;clearTimeout(speechWatch);if(hasSpeech)speechSynthesis.cancel();}
 
 /* ---------- Sound ---------- */
+// Every sound goes through one loud master volume and a limiter, so effects are punchy without crackling.
+const MASTER_VOLUME=3;
+let masterOut=null;
+function out(ac){if(!masterOut){const comp=ac.createDynamicsCompressor();comp.threshold.value=-8;comp.knee.value=4;comp.ratio.value=8;comp.attack.value=.002;comp.release.value=.15;masterOut=ac.createGain();masterOut.gain.value=MASTER_VOLUME;masterOut.connect(comp);comp.connect(ac.destination);}return masterOut;}
 function audioCtx(){const A=window.AudioContext||window.webkitAudioContext;const ac=window.ac||(window.ac=new A());if(ac.state==="suspended")ac.resume();return ac;}
-function tone(f,d=.1,type="sine",delay=0){if(!soundsOn)return;try{const ac=audioCtx();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type=type;g.gain.setValueAtTime(.0001,ac.currentTime+delay);g.gain.exponentialRampToValueAtTime(.18,ac.currentTime+delay+.01);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+delay+d);o.connect(g);g.connect(ac.destination);o.start(ac.currentTime+delay);o.stop(ac.currentTime+delay+d+.02);}catch(e){}}
+function tone(f,d=.1,type="sine",delay=0){if(!soundsOn)return;try{const ac=audioCtx();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type=type;g.gain.setValueAtTime(.0001,ac.currentTime+delay);g.gain.exponentialRampToValueAtTime(.18,ac.currentTime+delay+.01);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+delay+d);o.connect(g);g.connect(out(ac));o.start(ac.currentTime+delay);o.stop(ac.currentTime+delay+d+.02);}catch(e){}}
 /* Sound effects: all synthesized with Web Audio, so there are no files to load. */
 let noiseBuf=null;
 function noise(ac){if(!noiseBuf){noiseBuf=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}return noiseBuf;}
 function sfx(fn){if(!soundsOn)return;try{const ac=audioCtx();fn(ac,ac.currentTime+.03);}catch(e){}}
-function env(ac,node,t,peak,attack,decay){const g=ac.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+attack+decay);node.connect(g);g.connect(ac.destination);return g;}
+function env(ac,node,t,peak,attack,decay){const g=ac.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+attack+decay);node.connect(g);g.connect(out(ac));return g;}
 function osc(ac,type,f,t,dur,peak,attack=.01){const o=ac.createOscillator();o.type=type;o.frequency.setValueAtTime(f,t);env(ac,o,t,peak,attack,dur);o.start(t);o.stop(t+attack+dur+.05);return o;}
 function noiseHit(ac,t,dur,peak,ftype,freq,q=1){const s=ac.createBufferSource();s.buffer=noise(ac);const f=ac.createBiquadFilter();f.type=ftype;f.frequency.value=freq;f.Q.value=q;s.connect(f);env(ac,f,t,peak,.003,dur);s.start(t,Math.random()*1.5);s.stop(t+dur+.05);return f;}
 function bell(ac,t,f,peak=.2){[1,2.76,5.4].forEach((m,i)=>osc(ac,"sine",f*m,t,i?.5:1.2,peak/(i*2+1),.005));}
@@ -325,14 +329,14 @@ function applause(ac,t,dur,amount=1){const n=Math.round(90*dur*amount);for(let i
 // Wheel clicks timed to the CSS ease-out, so they slow down with the wheel.
 function wheelTicks(deg){sfx((ac,t)=>{const n=Math.floor(deg/36);for(let k=1;k<=n;k++){const at=t+4*(1-Math.cbrt(1-k/n));noiseHit(ac,at,.02,.22,"highpass",3000);osc(ac,"square",1500,at,.012,.03,.001);}});}
 function clickSound(){sfx((ac,t)=>osc(ac,"triangle",1200,t,.04,.07,.002));}
-function landSound(){sfx((ac,t)=>bell(ac,t,1046,.16));}
+function landSound(){sfx((ac,t)=>bell(ac,t,1046,.28));}
 function correctSound(){sfx((ac,t)=>{bell(ac,t,1318,.18);bell(ac,t+.14,1760,.18);[523,659,784,1046].forEach((f,i)=>osc(ac,"triangle",f,t+.3+i*.08,.35,.1));applause(ac,t+.25,2.2,.9);});}
-function wrongSound(){sfx((ac,t)=>{const lp=ac.createBiquadFilter();lp.type="lowpass";lp.frequency.value=900;const g=ac.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.2,t+.02);g.gain.setValueAtTime(.2,t+.55);g.gain.exponentialRampToValueAtTime(.0001,t+.75);lp.connect(g);g.connect(ac.destination);[110,116.5].forEach(f=>{const o=ac.createOscillator();o.type="sawtooth";o.frequency.value=f;o.connect(lp);o.start(t);o.stop(t+.8);});});}
-function stealSound(){sfx((ac,t)=>{t+=.8;const o=ac.createOscillator(),lp=ac.createBiquadFilter(),g=ac.createGain();o.type="square";lp.type="lowpass";lp.frequency.value=2000;o.connect(lp);lp.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.06,t+.05);g.gain.setValueAtTime(.06,t+1.3);g.gain.exponentialRampToValueAtTime(.0001,t+1.5);for(let i=0;i<3;i++){o.frequency.setValueAtTime(620,t+i*.5);o.frequency.linearRampToValueAtTime(980,t+i*.5+.25);o.frequency.linearRampToValueAtTime(620,t+i*.5+.5);}o.start(t);o.stop(t+1.55);});}
+function wrongSound(){sfx((ac,t)=>{const lp=ac.createBiquadFilter();lp.type="lowpass";lp.frequency.value=900;const g=ac.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.2,t+.02);g.gain.setValueAtTime(.2,t+.55);g.gain.exponentialRampToValueAtTime(.0001,t+.75);lp.connect(g);g.connect(out(ac));[110,116.5].forEach(f=>{const o=ac.createOscillator();o.type="sawtooth";o.frequency.value=f;o.connect(lp);o.start(t);o.stop(t+.8);});});}
+function stealSound(){sfx((ac,t)=>{t+=.8;const o=ac.createOscillator(),lp=ac.createBiquadFilter(),g=ac.createGain();o.type="square";lp.type="lowpass";lp.frequency.value=2000;o.connect(lp);lp.connect(g);g.connect(out(ac));g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.14,t+.05);g.gain.setValueAtTime(.14,t+1.3);g.gain.exponentialRampToValueAtTime(.0001,t+1.5);for(let i=0;i<3;i++){o.frequency.setValueAtTime(620,t+i*.5);o.frequency.linearRampToValueAtTime(980,t+i*.5+.25);o.frequency.linearRampToValueAtTime(620,t+i*.5+.5);}o.start(t);o.stop(t+1.55);});}
 function loseSound(){sfx((ac,t)=>{[293.7,277.2,261.6,246.9].forEach((f,i)=>{const at=t+i*.48,d=i===3?1.1:.42,o=ac.createOscillator(),lp=ac.createBiquadFilter();o.type="sawtooth";o.frequency.setValueAtTime(f,at);if(i===3){const lfo=ac.createOscillator(),lg=ac.createGain();lfo.frequency.value=6;lg.gain.value=5;lfo.connect(lg);lg.connect(o.frequency);lfo.start(at);lfo.stop(at+d+.1);}lp.type="lowpass";lp.frequency.value=1100;o.connect(lp);env(ac,lp,at,.15,.04,d);o.start(at);o.stop(at+d+.1);});});}
 function whooshSound(){sfx((ac,t)=>{const f=noiseHit(ac,t,.6,.22,"bandpass",300,2);f.frequency.setValueAtTime(300,t);f.frequency.exponentialRampToValueAtTime(3000,t+.5);});}
 function jackpotSound(){sfx((ac,t)=>{[523,659,784,1046,1318,1568].forEach((f,i)=>osc(ac,"square",f,t+i*.07,.25,.05));for(let i=0;i<12;i++)bell(ac,t+.45+i*.06,2000+Math.random()*2000,.04);});}
-function tickSound(){sfx((ac,t)=>{osc(ac,"sine",1600,t,.05,.14,.002);noiseHit(ac,t,.03,.07,"highpass",4000);});}
+function tickSound(){sfx((ac,t)=>{osc(ac,"sine",1600,t,.05,.3,.002);noiseHit(ac,t,.03,.14,"highpass",4000);});}
 function timeUpSound(){sfx((ac,t)=>[98,104].forEach(f=>osc(ac,"sawtooth",f,t,1,.11,.02)));}
 function drumrollSound(dur=1.6){sfx((ac,t)=>{for(let x=0;x<dur;x+=.045)noiseHit(ac,t+x,.06,.04+.12*(x/dur),"bandpass",250,.8);noiseHit(ac,t+dur,1.2,.28,"highpass",5000);osc(ac,"sine",80,t+dur,.5,.4,.005);});}
 function fanfareSound(){sfx((ac,t)=>{[[523,0,.18],[523,.2,.12],[523,.34,.12],[659,.5,.5],[784,1.05,.2],[659,1.28,.2],[784,1.5,.9]].forEach(([f,st,d])=>[1,1.005].forEach(det=>{const o=ac.createOscillator(),lp=ac.createBiquadFilter();o.type="sawtooth";o.frequency.value=f*det;lp.type="lowpass";lp.frequency.value=2400;o.connect(lp);env(ac,lp,t+st,.07,.03,d);o.start(t+st);o.stop(t+st+d+.1);}));applause(ac,t+.3,4,1.3);});}
@@ -358,7 +362,7 @@ function startTimerMusic(){
    g.gain.setValueAtTime(.0001,start);
    g.gain.exponentialRampToValueAtTime(timerMode==="final"?.022:.025,start+.03);
    g.gain.exponentialRampToValueAtTime(.0001,start+step*.82);
-   o.connect(g);g.connect(ac.destination);o.start(start);o.stop(start+step*.88);
+   o.connect(g);g.connect(out(ac));o.start(start);o.stop(start+step*.88);
    musicNodes.push(o);
   }
  }catch(e){}
