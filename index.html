@@ -140,7 +140,7 @@ select option{background:#0f1c5e;color:#fff}
 <div class="meta">
 <span class="badge" id="count">Question 0 of 0</span>
 <span class="badge">Value: <span id="value">—</span></span>
-<span class="timer" id="timer">30</span>
+<span class="timer" id="timer">1:30</span>
 </div>
 <div class="question"><div><div class="qnum" id="qnum">QUESTION —</div><div id="qtext">Spin the wheel to load a question.</div></div></div>
 <div id="typeHint" class="typehint"></div><div id="choices" class="choices"></div><div class="answer" id="answer"></div>
@@ -167,7 +167,7 @@ select option{background:#0f1c5e;color:#fff}
 
 <div class="modal" id="finalModal">
 <div class="modalbox">
-<div class="meta"><h2 id="finalHeading">Final Jackpot</h2><span class="timer" id="finalTimer">30</span></div>
+<div class="meta"><h2 id="finalHeading">Final Jackpot</h2><span class="timer" id="finalTimer">1:30</span></div>
 <div id="finalMessage" class="message"></div>
 <p id="finalText"></p><div id="finalChoices" class="choices"></div>
 <div class="answer" id="finalAnswer"></div>
@@ -210,7 +210,9 @@ const segments=[
 {label:"LOSE TURN",type:"lose"},{label:"JACKPOT",type:"points",value:1000}
 ];
 const FINAL_POINTS=1000;
-const STEAL_SECONDS=60;
+const QUESTION_SECONDS=90; // first answer, including the Final Jackpot
+const STEAL_SECONDS=45;
+function spokenTime(sec){const m=Math.floor(sec/60),r=sec%60;if(!m)return `${r} seconds`;const mins=m===1?"one minute":`${m} minutes`;return r===30?(m===1?"a minute and a half":`${m} and a half minutes`):r?`${mins} and ${r} seconds`:mins;}
 const SAVE_KEY="gynWheelGame.v2";
 const TEST_TOPICS=[...new Set(QUESTIONS.map(q=>q.topic).filter(t=>t!=="Course review"))];
 const DEFAULT_NAMES=["Jerry's Odd Squad","The Even Suns"];
@@ -233,7 +235,7 @@ function buildGameOrder(count){
 }
 // state: ready | spinning | question | steal | reveal | advancing | final-ready | final | final-steal | done
 let scores=[0,0],currentTeam=0,turnOwner=0,currentPoints=0,qIndex=0,state="ready";
-let timerInt=null,timeLeft=30,currentTimerLength=30,rotation=0,autoRead=true,soundsOn=true,selectedVoice=null,userPickedVoice=false,musicNodes=[],timerMode="question";
+let timerInt=null,timeLeft=QUESTION_SECONDS,currentTimerLength=QUESTION_SECONDS,rotation=0,autoRead=true,soundsOn=true,selectedVoice=null,userPickedVoice=false,musicNodes=[],timerMode="question";
 let selectedAnswers=[];
 // Every game step gets a phase id; delayed callbacks (speech end, timers, timeouts) only run if their phase is still current.
 let phaseId=0;
@@ -486,7 +488,7 @@ function loadQuestion(){
  if(qIndex>=gameQs.length){showFinal();return;}
  nextPhase();
  const q=gameQs[qIndex];
- state="question";currentTimerLength=30;timerMode="question";
+ state="question";currentTimerLength=QUESTION_SECONDS;timerMode="question";
  document.body.classList.remove("final-mode");
  clearChoiceSelection();renderChoices(q);
  $("qnum").textContent=`QUESTION ${qIndex+1}`;$("qtext").textContent=q.q;$("typeHint").textContent=questionTypeLabel(q);
@@ -494,7 +496,7 @@ function loadQuestion(){
  $("count").textContent=`Question ${qIndex+1} of ${gameQs.length}`;$("value").textContent=currentPoints+" points";
  updateTeams();
  setMessage(`${tn(currentTeam)}: choose your answer for ${currentPoints} points, then press Submit.`);
- speak(`${tn(currentTeam)}, this one is for ${currentPoints} points. ${spokenQuestion(q)} You have 30 seconds. Go!`,inPhase(startTimer));
+ speak(`${tn(currentTeam)}, this one is for ${currentPoints} points. ${spokenQuestion(q)} You have ${spokenTime(QUESTION_SECONDS)}. Go!`,inPhase(startTimer));
 }
 function submitAnswer(timeUp=false){
  if(!isAnswering())return;
@@ -523,7 +525,7 @@ function submitAnswer(timeUp=false){
   clearChoiceSelection(box);updateTeams();
   flash("STEAL!",`${tn(currentTeam)}: ${pts} points up for grabs`,"steal");
   setMessage(`${lead}${tn(team)} missed it. ${tn(currentTeam)}, steal ${pts} points: choose an answer and press Submit.`);
-  speak(`${lead}${pickLine(["Ooh, not quite.","Sorry, that's not it.","Oh, so close!","Nope, not this time."])} ${tn(currentTeam)}, here's your chance to steal ${pts} points! You have one minute. Go!`,inPhase(startTimer));
+  speak(`${lead}${pickLine(["Ooh, not quite.","Sorry, that's not it.","Oh, so close!","Nope, not this time."])} ${tn(currentTeam)}, here's your chance to steal ${pts} points! You have ${spokenTime(STEAL_SECONDS)}. Go!`,inPhase(startTimer));
  }else{
   // Nobody got it: show the correct answer so the class can learn it.
   wrongSound();flash("NO POINTS","",'bad');
@@ -618,7 +620,7 @@ function applyGame(g){
  gameQs=gameOrder.map(i=>QUESTIONS[i]);
  $("setupModal").style.display="none";$("finalModal").style.display="none";$("scoreReport").style.display="none";
  document.body.classList.remove("steal-mode","final-mode");
- scores=[...g.scores];qIndex=Math.min(g.qIndex,gameQs.length);currentTeam=g.currentTeam;turnOwner=currentTeam;currentPoints=0;timeLeft=30;
+ scores=[...g.scores];qIndex=Math.min(g.qIndex,gameQs.length);currentTeam=g.currentTeam;turnOwner=currentTeam;currentPoints=0;timeLeft=QUESTION_SECONDS;
  const finished=qIndex>=gameQs.length;
  state=g.state==="done"?"done":finished?"final-ready":"ready";
  $("name1Label").textContent=tn(0);$("name2Label").textContent=tn(1);
@@ -653,7 +655,7 @@ function resumeGame(){
 function showFinal(){
  if(state==="done")return;
  nextPhase();stopTimer();
- state="final";finalStarter=currentTeam;timerMode="final";currentTimerLength=30;timeLeft=30;showTime();
+ state="final";finalStarter=currentTeam;timerMode="final";currentTimerLength=QUESTION_SECONDS;timeLeft=QUESTION_SECONDS;showTime();
  document.body.classList.add("final-mode");
  clearChoiceSelection("finalChoices");renderChoices(FINAL,"finalChoices");
  $("finalText").textContent=FINAL.q;
@@ -663,7 +665,7 @@ function showFinal(){
  updateTeams();
  setMessage(`${tn(currentTeam)}: choose your answer for ${FINAL_POINTS} points, then press Submit.`);
  drumrollSound();
- setTimeout(inPhase(()=>speak(`It's time for the Final Jackpot, worth ${FINAL_POINTS} points! ${tn(currentTeam)}, this one is yours. ${spokenQuestion(FINAL)} You have ${currentTimerLength} seconds. Go!`,inPhase(startTimer))),1700);
+ setTimeout(inPhase(()=>speak(`It's time for the Final Jackpot, worth ${FINAL_POINTS} points! ${tn(currentTeam)}, this one is yours. ${spokenQuestion(FINAL)} You have ${spokenTime(QUESTION_SECONDS)}. Go!`,inPhase(startTimer))),1700);
 }
 function readFinal(){speak(`Final Jackpot. ${spokenQuestion(FINAL)}`,null,true);}
 function launchConfetti(){
