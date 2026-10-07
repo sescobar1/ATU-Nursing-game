@@ -57,6 +57,7 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.9}}
 .choice.correct{border-color:#16815b;background:#b9ecd0;box-shadow:0 0 0 3px rgba(22,129,91,.35)}.choice.correct .letter{background:#16815b;color:#fff}.choice.wrong{border-color:#c0392b;background:#f9c9c4}.choice.wrong .letter{background:#c0392b;color:#fff}.choices.locked .choice{cursor:default;transform:none}
 .modalbox .meta{margin-bottom:10px}
+.setup label{display:block;font-weight:800;margin:12px 0}.setup input,.setup select{display:block;width:100%;max-width:none;margin-top:6px;padding:10px;font-size:17px;border:2px solid var(--green);border-radius:10px}.setup .hint{color:#555;margin:6px 0 0}.resume{background:#eef8f3;border-radius:12px;padding:14px;text-align:center;margin-bottom:6px}.resume p{margin:0 0 10px;font-weight:700}
 .score-report{font-size:28px;font-weight:900;text-align:center;padding:18px;border-radius:16px;background:#fff5cc;border:3px solid var(--gold);margin-top:14px}
 @media(max-width:850px){.grid{grid-template-columns:1fr}canvas{width:240px;height:240px}}
 </style>
@@ -65,11 +66,11 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 <header><h1>GYN Surgery Spin the Wheel Challenge</h1><p>Automatic two-team classroom review game</p></header>
 <main>
 <div id="turnBanner" class="banner team1">TEAM 1 — SPIN NOW</div>
-<div id="message" class="message">Team 1 begins the game.</div>
+<div id="message" class="message">Set up the game to begin.</div>
 
 <section class="grid">
 <div class="card team-card active" id="team1">
-<h2>Team 1</h2><div class="score" id="score1">0</div>
+<h2 id="name1Label">Team 1</h2><div class="score" id="score1">0</div>
 <button class="secondary" onclick="adjustScore(0,100)">+100</button>
 <button class="secondary" onclick="adjustScore(0,-100)">−100</button>
 </div>
@@ -82,7 +83,7 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 </div>
 
 <div class="card team-card" id="team2">
-<h2>Team 2</h2><div class="score" id="score2">0</div>
+<h2 id="name2Label">Team 2</h2><div class="score" id="score2">0</div>
 <button class="secondary" onclick="adjustScore(1,100)">+100</button>
 <button class="secondary" onclick="adjustScore(1,-100)">−100</button>
 </div>
@@ -129,6 +130,26 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 </div>
 </div>
 
+<div class="modal" id="setupModal" style="display:flex">
+<div class="modalbox setup">
+<h2>GYN Surgery Spin the Wheel Challenge</h2>
+<div id="resumeBox" class="resume" style="display:none">
+<p id="resumeText"></p>
+<button class="yes" onclick="resumeGame()">▶ RESUME SAVED GAME</button>
+<p style="margin:12px 0 0">— or set up a new game below —</p>
+</div>
+<label>Team 1 name<input id="name1" maxlength="20" placeholder="Team 1"></label>
+<label>Team 2 name<input id="name2" maxlength="20" placeholder="Team 2"></label>
+<label>Game length<select id="lengthSelect">
+<option value="15">Quick: 15 questions (about 30 minutes)</option>
+<option value="25" selected>Class period: 25 questions (about 1 hour)</option>
+<option value="all" id="allOption">All questions</option>
+</select></label>
+<p class="hint">Questions are shuffled every game, and every game ends with the 1000-point Final Jackpot. Progress is saved automatically if the page is refreshed.</p>
+<div class="controls"><button class="primary" onclick="startNewGame()">START GAME</button></div>
+</div>
+</div>
+
 <script>
 const QUESTIONS=[{"type":"mc","q":"Bulging of the bladder into the vaginal wall is called:","options":["Rectocele","Cystocele","Uterine prolapse","Fistula"],"correct":[1]},{"type":"mc","q":"What is the first-line exercise treatment for pelvic organ prolapse?","options":["Kegel exercises","Bed rest","Abdominal crunches","Fluid restriction"],"correct":[0]},{"type":"tf","q":"Obesity is a modifiable risk factor for pelvic organ prolapse.","options":["True","False"],"correct":[0]},{"type":"mc","q":"Which device can support pelvic organs without surgery?","options":["Pessary","Diaphragm","Foley catheter","Cervical cap"],"correct":[0]},{"type":"mc","q":"Which description matches Stage III pelvic organ prolapse in the course content?","options":["No descent","Above the hymen","Two to three centimeters below the hymen","Complete eversion only"],"correct":[2]},{"type":"mc","q":"Leakage of urine when coughing, sneezing, or laughing is:","options":["Urge incontinence","Stress incontinence","Overflow incontinence","Functional incontinence"],"correct":[1]},{"type":"mc","q":"A strong, sudden urge to urinate with inability to delay voiding is:","options":["Stress incontinence","Urge incontinence","Overflow incontinence","Fistula"],"correct":[1]},{"type":"mc","q":"Which medication class is commonly used to treat urge incontinence?","options":["Anticholinergics","Antibiotics","Anticoagulants","Bisphosphonates"],"correct":[0]},{"type":"mc","q":"A client leaks urine when laughing but also has urgency and cannot delay voiding. Which type is this?","options":["Stress only","Urge only","Mixed urinary incontinence","Overflow"],"correct":[2]},{"type":"mc","q":"Which common stimulant is a bladder irritant that may worsen urinary urgency?","options":["Caffeine","Calcium","Vitamin D","Iron"],"correct":[0]},{"type":"mc","q":"A small, soft growth that may cause postcoital bleeding is a:","options":["Cervical polyp","Ovarian cyst","Fibroid","Fistula"],"correct":[0]},{"type":"mc","q":"A benign uterine tumor commonly associated with heavy menstrual bleeding is a:","options":["Leiomyoma/fibroid","Cystocele","Cervical polyp","Fistula"],"correct":[0]},{"type":"mc","q":"A fluid-filled sac on the ovary is called a:","options":["Ovarian cyst","Fibroid","Polyp","Fistula"],"correct":[0]},{"type":"mc","q":"An abnormal connection between organs such as the bladder and vagina is a:","options":["Fistula","Cystocele","Rectocele","Fibroid"],"correct":[0]},{"type":"mc","q":"Which PCOS finding refers to excess androgen activity?","options":["Hyperandrogenism","Amenorrhea","Osteoporosis","Hypoinsulinemia"],"correct":[0]},{"type":"mc","q":"Which reproductive cancer is identified in the course content as the most deadly?","options":["Ovarian cancer","Cervical cancer","Endometrial cancer","Vulvar cancer"],"correct":[0]},{"type":"tf","q":"HPV infection is strongly associated with cervical cancer.","options":["True","False"],"correct":[0]},{"type":"mc","q":"What is the most common presenting symptom of breast cancer in the course content?","options":["Breast lump or mass","Fever","Vaginal bleeding","Urinary urgency"],"correct":[0]},{"type":"mc","q":"Which early ovarian cancer symptom means feeling full after eating only a small amount?","options":["Early satiety","Dysuria","Amenorrhea","Galactorrhea"],"correct":[0]},{"type":"mc","q":"Postmenopausal bleeding is most concerning for which cancer?","options":["Endometrial cancer","Ovarian cancer","Breast cancer","Vulvar cancer"],"correct":[0]},{"type":"mc","q":"At what age should routine Pap smear screening begin according to the course content?","options":["18","21","25","30"],"correct":[1]},{"type":"mc","q":"How often should Pap smears be performed for patients ages 21 through 29 according to the course content?","options":["Every year","Every 2 years","Every 3 years","Every 5 years"],"correct":[2]},{"type":"mc","q":"How often is cervical cancer screening recommended for ages 30 through 65 in the course content?","options":["Every year","Every 2 years","Every 3 years only","Every 5 years with appropriate HPV-based screening"],"correct":[3]},{"type":"mc","q":"What is the gold-standard screening test for breast cancer in the course content?","options":["Digital mammography","Clinical breast exam","Breast ultrasound","Breast MRI for everyone"],"correct":[0]},{"type":"mc","q":"During a vasectomy, which structure is cut or sealed?","options":["Vas deferens","Ureter","Urethra","Epididymis"],"correct":[0]},{"type":"mc","q":"What medication regimen is used for medical abortion in the course content?","options":["Mifepristone followed by misoprostol","Oxytocin followed by estrogen","Clomiphene followed by progesterone","Methotrexate followed by calcium"],"correct":[0]},{"type":"sata","q":"A 36-year-old client smokes half a pack per day and wants contraception for the next 3 to 5 years. Which methods should the nurse expect the provider to consider? Select all that apply.","options":["Progestin-only pill (mini pill)","Combined oral contraceptive pill","Copper IUD (Paragard)","Nexplanon","Transdermal contraceptive patch","Male condoms"],"correct":[0,2,3,5]},{"type":"mc","q":"An American Indian child is hospitalized with pneumonia. His grandmother has legal custody and requests a tribal healing ceremony and an herbal tea. What is the nurse's best action?","options":["Prohibit both until discharge","Direct teaching to the uncle","Ask about both practices, have the tea checked for safety, accommodate the ceremony when possible, and include the grandmother in decisions","Contact the child's mother for approval"],"correct":[2]},{"type":"mc","q":"A parent demands obedience without explanation and threatens spanking. Which teaching is most appropriate?","options":["Let the child set the rules","Give a simple reason for the rule and offer an age-appropriate choice","Delay all consequences","Use consistent spanking"],"correct":[1]},{"type":"mc","q":"A mother and her children from a previous marriage live with her new husband and his child from a prior relationship. This is a:","options":["Nuclear family","Extended family","Blended family","Cohabiting family"],"correct":[2]},{"type":"mc","q":"A divorced father is raising his two young children. This is a:","options":["Single-parent family","Extended family","Nuclear family","Adoptive family"],"correct":[0]},{"type":"mc","q":"A 9-year-old is frequently hungry and unkempt and says the parents do not care what the child does as long as the child stays out of the way. Which parenting style is this?","options":["Authoritative","Rejecting-neglecting","Permissive","Authoritarian"],"correct":[1]},{"type":"mc","q":"A Hispanic client asks the nurse to discuss his diabetes meal plan and medications with his wife because she manages the family's health needs. Which course concept does this reflect?","options":["Individual independence","The mother/wife as family health caretaker and decision-maker","Equal authority is required in every family","Relatives should not be involved"],"correct":[1]},{"type":"mc","q":"A Hindu client refuses a beef-derived medication because it violates religious beliefs. What should the nurse do?","options":["Insist the client take it","Ask the provider for an acceptable alternative","Document refusal and take no further action","Tell the client medical treatment overrides the belief"],"correct":[1]},{"type":"mc","q":"A critically ill premature newborn's Catholic mother asks for baptism, but the chaplain is unavailable. What action is appropriate?","options":["Tell her only clergy may baptize","Decline the request","Offer to perform the baptism with water and the appropriate words","Wait until the funeral service"],"correct":[2]},{"type":"mc","q":"A competent Christian Scientist client with severe pneumonia refuses antibiotics and oxygen. What is the nurse's best response?","options":["Force treatment","Notify the provider, verify informed understanding, and support the client's decision","Call security","Seek a court order immediately"],"correct":[1]},{"type":"mc","q":"Which family decision-making pattern is identified in the course test content as common in many African American families?","options":["Father as sole decision-maker","Strong matriarchal system with women in key decision-making roles","Eldest male outside the family makes decisions","All decisions are made independently"],"correct":[1]},{"type":"mc","q":"A parent allows a 5-year-old to make most decisions, sets few rules, and rarely enforces discipline. Which parenting style is this?","options":["Authoritative","Authoritarian","Permissive","Rejecting-neglecting"],"correct":[2]},{"type":"mc","q":"On postoperative day 1 after a modified radical mastectomy, which activity should the nurse encourage on the affected side?","options":["Immobilize the arm in a sling","Squeeze a soft ball with the affected hand several times a day","Lift 10- to 15-pound weights","Avoid all arm movement until the drain is removed"],"correct":[1]},{"type":"mc","q":"A client with PCOS has obesity, irregular menses, and hirsutism. Which long-term complication is she at increased risk for?","options":["Type 2 diabetes","Osteoporosis","Cervical cancer","Hypothyroidism"],"correct":[0]},{"type":"mc","q":"A client with urge incontinence takes oxybutynin. Which teaching is appropriate?","options":["Restrict fluids below 1 liter daily","Hold urine for 8 hours","Reduce coffee, soda, and artificial sweeteners","Stop pelvic floor exercises"],"correct":[2]},{"type":"mc","q":"A client has right shoulder pain on postoperative day 1 after laparoscopic hysterectomy. Vital signs are stable and there is no chest pain or shortness of breath. What is the best response?","options":["Massage the fundus","Keep the client on bed rest","Call rapid response for pulmonary embolism","Explain that laparoscopic gas can cause referred shoulder pain that may last up to 7 days"],"correct":[3]},{"type":"mc","q":"Which statement after cesarean birth shows a need for more teaching?","options":["I will not lift anything heavier than my baby","I will walk around the house each day","I will take a warm tub bath for soreness","I will return for an incision check"],"correct":[2]},{"type":"mc","q":"Which evaluation method is identified as the gold standard for diagnosing endometriosis?","options":["Pelvic examination","Transvaginal ultrasound","Laparoscopy","Hysterosalpingogram"],"correct":[2]},{"type":"mc","q":"Which history finding is identified as a risk factor for pelvic inflammatory disease (PID)?","options":["Leaving a cervical cap in place longer than 72 hours","Genetic predisposition","Gestational diabetes","Environmental exposure"],"correct":[0]},{"type":"sata","q":"Which findings can occur with perimenopause or menopause? Select all that apply.","options":["Irregular periods","Hot flashes","Night sweats","Sleep disturbances","Vaginal dryness","Irritability and anxiety","Increased libido"],"correct":[0,1,2,3,4,5]},{"type":"sata","q":"Which findings support PCOS? Select all that apply.","options":["Elevated blood insulin levels","Decreased androgen levels","Anovulation","Waist circumference of 30 inches"],"correct":[0,2]},{"type":"mc","q":"Which history finding is most consistent with endometriosis?","options":["Dysmenorrhea unresponsive to NSAIDs","History of PID","Bloating only before menses","Atypical Pap smear"],"correct":[0]},{"type":"mc","q":"A client with osteoporosis already takes calcium. Which supplement should the nurse recommend adding based on the test content?","options":["Vitamin E","Fish oil","Fiber","Vitamin D"],"correct":[3]},{"type":"tf","q":"Genital herpes has no cure, but drug therapy can reduce symptoms and recurrences.","options":["True","False"],"correct":[0]},{"type":"mc","q":"A client with an intact uterus begins estrogen therapy for severe hot flashes. Which addition should the nurse anticipate?","options":["Bisphosphonate instead of estrogen","Progestin with the estrogen","No additional medication","Thyroid hormone replacement"],"correct":[1]},{"type":"mc","q":"A 17-year-old who previously had regular periods has had no menses for 4 months while training more than 40 miles each week. Pregnancy test is negative. Which condition is most likely?","options":["Primary amenorrhea","Primary dysmenorrhea","Perimenopause","Secondary amenorrhea"],"correct":[3]},{"type":"mc","q":"Which statement shows correct understanding of clomiphene citrate (Clomid) teaching?","options":["I can take it for unlimited cycles","There is no chance of multiple gestation","We should have intercourse every other day for 1 week, starting after day 5 of the medication","It works by directly stimulating ovarian follicles"],"correct":[2]},{"type":"sata","q":"Which hormonal or long-acting contraceptive methods in the course table are marked as options for HIGH-RISK patients? Select all that apply.","options":["Progestin-only contraception","Depo-Provera","Nexplanon","IUD","Combined estrogen-progestin pill"],"correct":[0,1,2,3]}];
 const FINAL={"type":"mc","q":"A 46-year-old woman with obesity and chronic constipation reports pelvic pressure, a visible anterior vaginal bulge, and urine leakage when she coughs. What is the most likely diagnosis?","options":["Rectocele","Cystocele","Urge incontinence","Ovarian cyst"],"correct":[1]}
@@ -140,6 +161,10 @@ const segments=[
 {label:"LOSE TURN",type:"lose"},{label:"JACKPOT",type:"points",value:1000}
 ];
 const FINAL_POINTS=1000;
+const SAVE_KEY="gynWheelGame.v1";
+let teamNames=["Team 1","Team 2"],gameOrder=[],gameQs=[],gameStarted=false,finalStarter=0;
+function tn(i){return teamNames[i];}
+function shuffled(n){const a=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 // state: ready | spinning | question | steal | reveal | advancing | final-ready | final | final-steal | done
 let scores=[0,0],currentTeam=0,turnOwner=0,currentPoints=0,qIndex=0,state="ready";
 let timerInt=null,timeLeft=30,currentTimerLength=30,rotation=0,autoRead=true,soundsOn=true,selectedVoice=null,userPickedVoice=false,musicNodes=[],timerMode="question";
@@ -235,7 +260,7 @@ const isFinalState=()=>state==="final"||state==="final-steal";
 const isAnswering=()=>state==="question"||state==="steal"||isFinalState();
 function setMessage(t){$("message").textContent=t;$("finalMessage").textContent=t;}
 function bannerText(){
- const t=`TEAM ${currentTeam+1} — `;
+ const t=`${tn(currentTeam).toUpperCase()} — `;
  switch(state){
   case "steal":case "final-steal":return t+"STEAL CHANCE";
   case "question":case "final":return t+"ANSWER NOW";
@@ -255,15 +280,16 @@ function updateTeams(){
  $("nextBtn").style.display=state==="reveal"?"inline-block":"none";
  $("finalSubmitBtn").disabled=!isFinalState();
  document.body.classList.toggle("steal-mode",state==="steal"||state==="final-steal");
+ saveGame();
 }
-function updateScores(){$("score1").textContent=scores[0];$("score2").textContent=scores[1];}
+function updateScores(){$("score1").textContent=scores[0];$("score2").textContent=scores[1];saveGame();}
 function adjustScore(t,n){scores[t]=Math.max(0,scores[t]+n);updateScores();}
 
 /* ---------- Wheel ---------- */
 function spinWheel(){
  if(state==="final-ready"){showFinal();return;}
  if(state!=="ready")return;
- nextPhase();turnOwner=currentTeam;stopSpeaking();spinSound();state="spinning";updateTeams();setMessage(`Team ${currentTeam+1} is spinning...`);
+ nextPhase();turnOwner=currentTeam;stopSpeaking();spinSound();state="spinning";updateTeams();setMessage(`${tn(currentTeam)} is spinning...`);
  const idx=Math.floor(Math.random()*segments.length),arc=360/segments.length;
  // Segment centers are drawn clockwise from 3 o'clock; the pointer sits at 12 o'clock (270°).
  const jitter=(Math.random()-.5)*arc*.6;
@@ -275,8 +301,8 @@ function spinWheel(){
 }
 function handleSegment(s){
  $("wheelResult").textContent=s.label;
- if(s.type==="spinagain"){state="ready";updateTeams();setMessage(`Team ${currentTeam+1} spins again.`);speak(`Team ${currentTeam+1}, spin again.`);return;}
- if(s.type==="lose"){loseSound();const lost=currentTeam;currentTeam=1-currentTeam;state="ready";updateTeams();setMessage(`Team ${lost+1} lost the turn.`);speak(`Team ${lost+1} loses the turn. Team ${currentTeam+1}, please spin the wheel.`);return;}
+ if(s.type==="spinagain"){state="ready";updateTeams();setMessage(`${tn(currentTeam)} spins again.`);speak(`${tn(currentTeam)}, spin again.`);return;}
+ if(s.type==="lose"){loseSound();const lost=currentTeam;currentTeam=1-currentTeam;state="ready";updateTeams();setMessage(`${tn(lost)} lost the turn.`);speak(`${tn(lost)} loses the turn. ${tn(currentTeam)}, please spin the wheel.`);return;}
  currentPoints=s.value;
  loadQuestion();
 }
@@ -338,38 +364,38 @@ function startTimer(){
 
 /* ---------- Question flow ---------- */
 function loadQuestion(){
- if(qIndex>=QUESTIONS.length){showFinal();return;}
+ if(qIndex>=gameQs.length){showFinal();return;}
  nextPhase();
- const q=QUESTIONS[qIndex];
+ const q=gameQs[qIndex];
  state="question";currentTimerLength=30;timerMode="question";
  document.body.classList.remove("final-mode");
  clearChoiceSelection();renderChoices(q);
  $("qnum").textContent=`QUESTION ${qIndex+1}`;$("qtext").textContent=q.q;$("typeHint").textContent=questionTypeLabel(q);
  $("answer").textContent=`Correct answer: ${answerText(q)}`;$("answer").style.display="none";
- $("count").textContent=`Question ${qIndex+1} of ${QUESTIONS.length}`;$("value").textContent=currentPoints+" points";
+ $("count").textContent=`Question ${qIndex+1} of ${gameQs.length}`;$("value").textContent=currentPoints+" points";
  updateTeams();
- setMessage(`Team ${currentTeam+1}: choose your answer for ${currentPoints} points, then press Submit.`);
+ setMessage(`${tn(currentTeam)}: choose your answer for ${currentPoints} points, then press Submit.`);
  speak(`Question ${qIndex+1}. ${questionTypeLabel(q)}. ${q.q} ${spokenOptions(q)}. The 30 second timer will begin in 3, 2, 1.`,inPhase(startTimer));
 }
 function submitAnswer(timeUp=false){
  if(!isAnswering())return;
  const final=isFinalState(),stealing=state==="steal"||state==="final-steal";
- const q=final?FINAL:QUESTIONS[qIndex],box=final?"finalChoices":"choices",pts=final?FINAL_POINTS:currentPoints;
- if(!timeUp&&selectedAnswers.length===0){setMessage(`Team ${currentTeam+1}: click an answer before pressing Submit.`);return;}
+ const q=final?FINAL:gameQs[qIndex],box=final?"finalChoices":"choices",pts=final?FINAL_POINTS:currentPoints;
+ if(!timeUp&&selectedAnswers.length===0){setMessage(`${tn(currentTeam)}: click an answer before pressing Submit.`);return;}
  nextPhase();stopTimer();
  const lead=timeUp?(selectedAnswers.length?"Time is up. ":"Time is up and no answer was selected. "):"";
- const team=currentTeam+1;
+ const team=currentTeam;
  if(isCorrect(q,selectedAnswers)){
   correctSound();scores[currentTeam]+=pts;updateScores();
-  const msg=`${lead}Correct! Team ${team} ${stealing?"steals":"earns"} ${pts} points.`;
+  const msg=`${lead}Correct! ${tn(team)} ${stealing?"steals":"earns"} ${pts} points.`;
   endRound(q,box,final,msg,`${msg} The answer is: ${answerText(q)}`);
  }else if(!stealing){
   wrongSound();
   currentTeam=1-currentTeam;state=final?"final-steal":"steal";
   currentTimerLength=15;timerMode="steal";
   clearChoiceSelection(box);updateTeams();
-  setMessage(`${lead}Team ${team} is incorrect. Team ${currentTeam+1} may steal for ${pts} points — choose an answer and press Submit.`);
-  speak(`${lead}That is incorrect. Team ${currentTeam+1}, you have a chance to steal for ${pts} points. Choose one final answer and press Submit. The 15 second timer will begin in 3, 2, 1.`,inPhase(startTimer));
+  setMessage(`${lead}${tn(team)} is incorrect. ${tn(currentTeam)} may steal for ${pts} points — choose an answer and press Submit.`);
+  speak(`${lead}That is incorrect. ${tn(currentTeam)}, you have a chance to steal for ${pts} points. Choose one final answer and press Submit. The 15 second timer will begin in 3, 2, 1.`,inPhase(startTimer));
  }else{
   wrongSound();
   const msg=`${lead}The steal is incorrect. No points awarded.`;
@@ -390,8 +416,8 @@ function nextTurn(){
 function scoreUpdateText(){
  const s1=scores[0],s2=scores[1];
  if(s1===s2)return `The score is tied at ${s1} points each.`;
- const leader=s1>s2?1:2;
- return `Team ${leader} is winning. The score is Team 1, ${s1} points, and Team 2, ${s2} points. Team ${leader} leads by ${Math.abs(s1-s2)} points.`;
+ const leader=s1>s2?0:1;
+ return `${tn(leader)} is winning. The score is ${tn(0)}, ${s1} points, and ${tn(1)}, ${s2} points. ${tn(leader)} leads by ${Math.abs(s1-s2)} points.`;
 }
 function announceScore(next){
  const completedQuestion=qIndex+1;
@@ -403,53 +429,112 @@ function announceScore(next){
 }
 function finishQuestion(){
  nextPhase();
- qIndex++;$("progress").style.width=(qIndex/QUESTIONS.length*100)+"%";
+ qIndex++;$("progress").style.width=(qIndex/gameQs.length*100)+"%";
  currentTeam=1-turnOwner;
- const done=qIndex>=QUESTIONS.length;
+ const done=qIndex>=gameQs.length;
  state=done?"final-ready":"ready";updateTeams();
  clearChoiceSelection();
  $("qnum").textContent=done?"FINAL ROUND":"QUESTION —";
  $("qtext").textContent=done?"Regular questions complete. Final Jackpot is ready!":"Spin the wheel to load the next question.";
  $("value").textContent="—";$("answer").style.display="none";$("choices").innerHTML="";$("typeHint").textContent="";
  if(done)setTimeout(inPhase(showFinal),500);
- else{setMessage(`Team ${currentTeam+1} spins next.`);speak(`Team ${currentTeam+1}, it is your turn. Please spin the wheel.`);}
+ else{setMessage(`${tn(currentTeam)} spins next.`);speak(`${tn(currentTeam)}, it is your turn. Please spin the wheel.`);}
 }
 function repeatQuestion(){
  if(state==="final"||state==="final-steal"||state==="final-ready"){readFinal();return;}
- if(qIndex<QUESTIONS.length&&state!=="ready"&&state!=="spinning"){const q=QUESTIONS[qIndex];speak(`Question ${qIndex+1}. ${questionTypeLabel(q)}. ${q.q} ${spokenOptions(q)}`,null,true);}
+ if(qIndex<gameQs.length&&state!=="ready"&&state!=="spinning"){const q=gameQs[qIndex];speak(`Question ${qIndex+1}. ${questionTypeLabel(q)}. ${q.q} ${spokenOptions(q)}`,null,true);}
 }
-function toggleAutoRead(){autoRead=!autoRead;$("autoBtn").textContent="Auto-Read: "+(autoRead?"ON":"OFF");if(!autoRead)stopSpeaking();}
-function toggleSounds(){soundsOn=!soundsOn;$("soundBtn").textContent="Sounds: "+(soundsOn?"ON":"OFF");if(!soundsOn)stopTimerMusic();}
+function syncToggleLabels(){$("autoBtn").textContent="Auto-Read: "+(autoRead?"ON":"OFF");$("soundBtn").textContent="Sounds: "+(soundsOn?"ON":"OFF");}
+function toggleAutoRead(){autoRead=!autoRead;syncToggleLabels();if(!autoRead)stopSpeaking();saveGame();}
+function toggleSounds(){soundsOn=!soundsOn;syncToggleLabels();if(!soundsOn)stopTimerMusic();saveGame();}
 function resetGame(){
- if(!confirm("Reset the entire game?"))return;
+ if(!confirm("Start a new game? The current game and scores will be lost."))return;
+ nextPhase();silenceSpeech();stopTimer();clearSave();gameStarted=false;
+ $("finalModal").style.display="none";document.body.classList.remove("steal-mode","final-mode");
+ showSetup();
+}
+
+/* ---------- Setup, save and resume ---------- */
+function saveGame(){
+ if(!gameStarted)return;
+ // Save a point the game can safely restart from: an unanswered question is re-spun; an answered one counts as finished.
+ let q=qIndex,team=currentTeam;
+ if(state==="reveal"||state==="advancing"){q=qIndex+1;team=1-turnOwner;}
+ else if(state==="spinning"||state==="question"||state==="steal")team=turnOwner;
+ else if(isFinalState())team=finalStarter;
+ const st=state==="done"?"done":q>=gameQs.length?"final-ready":"ready";
+ try{localStorage.setItem(SAVE_KEY,JSON.stringify({names:teamNames,order:gameOrder,scores,qIndex:q,currentTeam:team,state:st,autoRead,soundsOn}));}catch(e){}
+}
+function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
+function loadSave(){
+ try{
+  const g=JSON.parse(localStorage.getItem(SAVE_KEY));
+  const okIdx=i=>Number.isInteger(i)&&i>=0&&i<QUESTIONS.length;
+  if(!g||!Array.isArray(g.names)||g.names.length!==2||!Array.isArray(g.order)||!g.order.length||!g.order.every(okIdx))return null;
+  if(!Array.isArray(g.scores)||g.scores.length!==2||!Number.isInteger(g.qIndex)||(g.currentTeam!==0&&g.currentTeam!==1))return null;
+  return g;
+ }catch(e){return null;}
+}
+function showSetup(){
+ const g=loadSave(),box=$("resumeBox");
+ if(g&&g.state!=="done"){
+  box.style.display="block";
+  $("resumeText").textContent=`Saved game: ${g.names[0]} ${g.scores[0]}, ${g.names[1]} ${g.scores[1]} — ${Math.min(g.qIndex,g.order.length)} of ${g.order.length} questions done.`;
+ }else box.style.display="none";
+ $("name1").value=teamNames[0]==="Team 1"?"":teamNames[0];$("name2").value=teamNames[1]==="Team 2"?"":teamNames[1];
+ $("setupModal").style.display="flex";
+}
+function applyGame(g){
  nextPhase();silenceSpeech();stopTimer();
- $("finalModal").style.display="none";$("scoreReport").style.display="none";
+ gameQs=gameOrder.map(i=>QUESTIONS[i]);
+ $("setupModal").style.display="none";$("finalModal").style.display="none";$("scoreReport").style.display="none";
  document.body.classList.remove("steal-mode","final-mode");
- scores=[0,0];currentTeam=0;turnOwner=0;currentPoints=0;qIndex=0;state="ready";timeLeft=30;
+ scores=[...g.scores];qIndex=Math.min(g.qIndex,gameQs.length);currentTeam=g.currentTeam;turnOwner=currentTeam;currentPoints=0;timeLeft=30;
+ const finished=qIndex>=gameQs.length;
+ state=g.state==="done"?"done":finished?"final-ready":"ready";
+ $("name1Label").textContent=tn(0);$("name2Label").textContent=tn(1);
+ gameStarted=true;
  clearChoiceSelection();updateScores();updateTeams();showTime();
  $("wheelResult").textContent="Spin to begin";
- $("qnum").textContent="QUESTION —";$("qtext").textContent="Spin the wheel to load a question.";
- $("count").textContent=`Question 0 of ${QUESTIONS.length}`;$("value").textContent="—";
- $("progress").style.width="0";$("answer").style.display="none";$("choices").innerHTML="";$("typeHint").textContent="";
- setMessage("Team 1 begins the game.");speak("Team 1 begins the game. Please spin the wheel.");
+ $("qnum").textContent=finished?"FINAL ROUND":"QUESTION —";
+ $("qtext").textContent=state==="done"?"Game over. Press Reset Game to play again.":finished?"Regular questions complete. Final Jackpot is ready!":"Spin the wheel to load a question.";
+ $("count").textContent=`Question ${qIndex} of ${gameQs.length}`;$("value").textContent="—";
+ $("progress").style.width=(qIndex/gameQs.length*100)+"%";
+ $("answer").style.display="none";$("choices").innerHTML="";$("typeHint").textContent="";
+}
+function startNewGame(){
+ teamNames=[$("name1").value.trim()||"Team 1",$("name2").value.trim()||"Team 2"];
+ const v=$("lengthSelect").value,len=v==="all"?QUESTIONS.length:Math.min(+v,QUESTIONS.length);
+ gameOrder=shuffled(QUESTIONS.length).slice(0,len);
+ applyGame({scores:[0,0],qIndex:0,currentTeam:0,state:"ready"});
+ setMessage(`${tn(0)} begins the game.`);
+ speak(`Welcome to the GYN Surgery Spin the Wheel Challenge. ${tn(0)} begins. Please spin the wheel.`);
+}
+function resumeGame(){
+ const g=loadSave();if(!g){showSetup();return;}
+ teamNames=g.names.map((n,i)=>String(n).slice(0,20)||`Team ${i+1}`);gameOrder=g.order;
+ autoRead=g.autoRead!==false;soundsOn=g.soundsOn!==false;syncToggleLabels();
+ applyGame(g);
+ const msg=state==="final-ready"?`Welcome back. ${tn(currentTeam)} is up for the Final Jackpot. Press OPEN FINAL JACKPOT.`:`Welcome back. ${scoreUpdateText()} ${tn(currentTeam)}, please spin the wheel.`;
+ setMessage(msg);speak(msg);
 }
 
 /* ---------- Final jackpot ---------- */
 function showFinal(){
  if(state==="done")return;
  nextPhase();stopTimer();
- state="final";timerMode="final";currentTimerLength=30;timeLeft=30;showTime();
+ state="final";finalStarter=currentTeam;timerMode="final";currentTimerLength=30;timeLeft=30;showTime();
  document.body.classList.add("final-mode");
  clearChoiceSelection("finalChoices");renderChoices(FINAL,"finalChoices");
  $("finalText").textContent=FINAL.q;
  $("finalAnswer").textContent="Correct answer: "+answerText(FINAL);$("finalAnswer").style.display="none";
- $("finalHeading").textContent=`Question ${QUESTIONS.length+1} — Final Jackpot (${FINAL_POINTS} points)`;
+ $("finalHeading").textContent=`Question ${gameQs.length+1} — Final Jackpot (${FINAL_POINTS} points)`;
  $("finalModal").style.display="flex";
  updateTeams();
- setMessage(`Team ${currentTeam+1}: choose your answer for ${FINAL_POINTS} points, then press Submit.`);
- speak(`Question ${QUESTIONS.length+1}. Final jackpot for ${FINAL_POINTS} points. Team ${currentTeam+1}, this one is yours. ${questionTypeLabel(FINAL)}. ${FINAL.q} ${spokenOptions(FINAL)}. The ${currentTimerLength} second timer will begin in 3, 2, 1.`,inPhase(startTimer));
+ setMessage(`${tn(currentTeam)}: choose your answer for ${FINAL_POINTS} points, then press Submit.`);
+ speak(`Question ${gameQs.length+1}. Final jackpot for ${FINAL_POINTS} points. ${tn(currentTeam)}, this one is yours. ${questionTypeLabel(FINAL)}. ${FINAL.q} ${spokenOptions(FINAL)}. The ${currentTimerLength} second timer will begin in 3, 2, 1.`,inPhase(startTimer));
 }
-function readFinal(){speak(`Question ${QUESTIONS.length+1}. Final jackpot. ${FINAL.q} ${spokenOptions(FINAL)}`,null,true);}
+function readFinal(){speak(`Question ${gameQs.length+1}. Final jackpot. ${FINAL.q} ${spokenOptions(FINAL)}`,null,true);}
 function launchConfetti(){
  const colors=["#f4c542","#0b6b4b","#ffffff","#e67e22","#3498db"];
  for(let i=0;i<120;i++){
@@ -467,8 +552,8 @@ function announceWinner(){
  let msg;
  if(scores[0]===scores[1])msg=`The game ends in a tie. Both teams have ${scores[0]} points.`;
  else{
-  const winner=scores[0]>scores[1]?1:2;
-  msg=`Team ${winner} wins the game. Final score: Team 1, ${scores[0]} points. Team 2, ${scores[1]} points.`;
+  const winner=scores[0]>scores[1]?0:1;
+  msg=`${tn(winner)} wins the game. Final score: ${tn(0)}, ${scores[0]} points. ${tn(1)}, ${scores[1]} points.`;
  }
  setMessage(msg);
  launchConfetti();
@@ -478,12 +563,11 @@ function closeFinal(){
  $("finalModal").style.display="none";document.body.classList.remove("final-mode");
  if(state==="done")return;
  nextPhase();stopTimer();silenceSpeech();
- state="final-ready";updateTeams();
+ state="final-ready";currentTeam=finalStarter;updateTeams();
  setMessage("Final Jackpot paused. Press OPEN FINAL JACKPOT to start it again.");
 }
 
-$("count").textContent=`Question 0 of ${QUESTIONS.length}`;
-updateTeams();showTime();
-window.addEventListener("load",()=>setTimeout(()=>speak("Team 1 begins the game. Please spin the wheel."),700));
+$("allOption").textContent=`All ${QUESTIONS.length} questions (about ${Math.round(QUESTIONS.length*2.4/60*2)/2} hours)`;
+updateTeams();showTime();showSetup();
 </script>
 </body></html>
