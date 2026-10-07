@@ -93,6 +93,14 @@ select option{background:#0f1c5e;color:#fff}
 .resume p{margin:0 0 12px;font-weight:600}
 .steal-mode{background:radial-gradient(1200px 600px at 50% -10%,#d9480f 0%,transparent 60%),linear-gradient(180deg,#3d0b2c,#12041a)!important}
 .final-mode{background:radial-gradient(1200px 700px at 50% -10%,#b7791f 0%,transparent 60%),linear-gradient(180deg,#1b1145,#05020f)!important}
+.flash{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center;padding:16px;font-family:"Bebas Neue",Impact,sans-serif;font-size:clamp(64px,14vw,170px);letter-spacing:.04em;line-height:.95;opacity:0;background:radial-gradient(ellipse at center,rgba(3,6,30,.78) 0,rgba(3,6,30,.45) 35%,transparent 65%)}
+.flash.show{animation:flashPop 1.8s ease forwards}
+.flash-sub{font-family:"Poppins",sans-serif;font-weight:800;font-size:clamp(18px,2.6vw,30px);letter-spacing:.02em;margin-top:14px;color:#fff;background:rgba(3,6,30,.8);border:1px solid rgba(255,255,255,.2);padding:8px 20px;border-radius:999px}
+.flash.good{color:#6ff3b8;text-shadow:0 6px 0 #0a5c3f,0 0 60px rgba(34,197,139,.7)}
+.flash.bad{color:#ff7a7a;text-shadow:0 6px 0 #7f1d1d,0 0 60px rgba(239,68,68,.6)}
+.flash.steal{color:#ffb547;text-shadow:0 6px 0 #9a3412,0 0 60px rgba(249,115,22,.7)}
+.flash.gold{color:var(--gold);text-shadow:0 6px 0 var(--gold-d),0 0 70px rgba(255,204,51,.75)}
+@keyframes flashPop{0%{opacity:0;transform:scale(.4) rotate(-6deg)}14%{opacity:1;transform:scale(1.08) rotate(-2deg)}24%{transform:scale(1) rotate(-2deg)}78%{opacity:1;transform:scale(1) rotate(-2deg)}100%{opacity:0;transform:scale(1.15) rotate(-2deg)}}
 .confetti-piece{position:fixed;width:10px;height:18px;top:-20px;z-index:9999;border-radius:2px;animation:fall 3.2s linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.9}}
 .score-report{font-family:"Bebas Neue",Impact,sans-serif;font-size:clamp(24px,3vw,34px);letter-spacing:.03em;text-align:center;padding:16px;border-radius:18px;background:linear-gradient(135deg,rgba(255,204,51,.22),rgba(255,204,51,.06));border:2px solid var(--gold);color:var(--gold);margin-top:16px}
@@ -154,6 +162,8 @@ select option{background:#0f1c5e;color:#fff}
 <div class="progress"><div id="progress"></div></div>
 </section>
 </main>
+
+<div id="flash" class="flash" aria-live="polite"></div>
 
 <div class="modal" id="finalModal">
 <div class="modalbox">
@@ -254,47 +264,80 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(drawWheel);
 /* ---------- Speech ---------- */
 const hasSpeech="speechSynthesis" in window;
 let pendingSpeech=null,currentUtt=null,speechWatch=null;
+// Most natural-sounding female voices first (Edge "Natural" voices, then Chrome/Mac voices).
+const VOICE_PREFS=[/Microsoft (Ava|Emma|Jenny|Aria|Michelle|Sonia|Libby|Natasha).*(Natural|Online)/i,/(Natural|Neural).*(Female|Ava|Emma|Jenny|Aria|Michelle)/i,/Google US English/i,/Samantha/i,/\bAva\b/i,/Allison|Susan|Victoria|Karen|Moira|Tessa/i,/Google UK English Female/i,/Zira/i,/Female/i,/Natural|Neural/i];
+function voiceRank(v){const i=VOICE_PREFS.findIndex(p=>p.test(v.name));return i<0?VOICE_PREFS.length+(v.lang==="en-US"?0:1):i;}
 function loadVoices(){
- const voices=speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.startsWith("en"));
+ const voices=speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.startsWith("en")).sort((a,b)=>voiceRank(a)-voiceRank(b));
  const prevName=selectedVoice&&selectedVoice.name;
- let pick=userPickedVoice?voices.find(v=>v.name===prevName):null;
- const prefs=[/Natural/i,/Neural/i,/Microsoft Ava/i,/Microsoft Jenny/i,/Microsoft Aria/i,/Google US English/i,/Samantha/i];
- if(!pick)for(const p of prefs){pick=voices.find(v=>p.test(v.name));if(pick)break;}
- selectedVoice=pick||voices.find(v=>v.lang==="en-US")||voices[0]||null;
+ const pick=userPickedVoice?voices.find(v=>v.name===prevName):null;
+ selectedVoice=pick||voices[0]||null;
  const s=$("voiceSelect");s.innerHTML="";
- voices.forEach(v=>{const o=document.createElement("option");o.value=v.name;o.textContent=v.name+" ("+v.lang+")";s.appendChild(o);});
+ voices.forEach((v,i)=>{const o=document.createElement("option");o.value=v.name;o.textContent=(i===0?"★ ":"")+v.name.replace(/ - English.*$/,"")+" ("+v.lang+")";s.appendChild(o);});
  if(selectedVoice)s.value=selectedVoice.name;
 }
 if(hasSpeech){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
-function changeVoice(){if(!hasSpeech)return;selectedVoice=speechSynthesis.getVoices().find(v=>v.name===$("voiceSelect").value)||selectedVoice;userPickedVoice=true;speak("This is the selected game voice.",null,true);}
+function changeVoice(){if(!hasSpeech)return;selectedVoice=speechSynthesis.getVoices().find(v=>v.name===$("voiceSelect").value)||selectedVoice;userPickedVoice=true;speak("Hi there! This is how I'll sound during the game.",null,true);}
 function finishSpeech(){const p=pendingSpeech;pendingSpeech=null;currentUtt=null;clearTimeout(speechWatch);if(p)p();}
+// Speech is spoken one sentence at a time, which sounds more natural and avoids browsers cutting off long text.
 // onend always runs exactly once: when speech ends, errors, is interrupted, is stopped, or is unavailable.
+function sentences(t){return t.replace(/\s+/g," ").trim().split(/(?<=[.!?])\s+(?=["“A-Z0-9])/).filter(Boolean);}
 function speak(t,onend=null,force=false){
  if(onend)finishSpeech();
  else if(pendingSpeech){onend=pendingSpeech;pendingSpeech=null;} // a re-read keeps the pending game step
  if(!(autoRead||force)||!hasSpeech){currentUtt=null;clearTimeout(speechWatch);if(onend)onend();return;}
  speechSynthesis.cancel();clearTimeout(speechWatch);
- const u=new SpeechSynthesisUtterance(t),token={};
- u.rate=0.98;u.pitch=1.02;if(selectedVoice)u.voice=selectedVoice;
+ const parts=sentences(t),token={};
  currentUtt=token;pendingSpeech=onend;
- const done=()=>{if(currentUtt===token)finishSpeech();};
- u.onend=done;u.onerror=done;
- // Safety net: some browsers silently drop long utterances without firing onend.
- const est=t.length*90+3000,started=Date.now();
- const watch=()=>{if(currentUtt!==token)return;if(!speechSynthesis.speaking||Date.now()-started>est*2)done();else speechWatch=setTimeout(watch,1000);};
- speechWatch=setTimeout(watch,est);
- speechSynthesis.speak(u);
+ let i=0;
+ const next=()=>{
+  if(currentUtt!==token)return;
+  if(i>=parts.length){finishSpeech();return;}
+  const text=parts[i++],u=new SpeechSynthesisUtterance(text);
+  u.rate=1;u.pitch=1;if(selectedVoice){u.voice=selectedVoice;u.lang=selectedVoice.lang;}
+  let fired=false;
+  const advance=()=>{if(fired)return;fired=true;clearTimeout(speechWatch);if(currentUtt===token)setTimeout(next,90);};
+  u.onend=advance;u.onerror=advance;
+  // Safety net: some browsers silently drop an utterance without firing onend.
+  const est=text.length*90+2500,started=Date.now();
+  const watch=()=>{if(fired||currentUtt!==token)return;if(!speechSynthesis.speaking||Date.now()-started>est*2)advance();else speechWatch=setTimeout(watch,800);};
+  speechWatch=setTimeout(watch,est);
+  speechSynthesis.speak(u);
+ };
+ next();
 }
+const pickLine=a=>a[Math.floor(Math.random()*a.length)];
 function stopSpeaking(){if(hasSpeech)speechSynthesis.cancel();finishSpeech();}
 function silenceSpeech(){pendingSpeech=null;currentUtt=null;clearTimeout(speechWatch);if(hasSpeech)speechSynthesis.cancel();}
 
 /* ---------- Sound ---------- */
 function audioCtx(){const A=window.AudioContext||window.webkitAudioContext;const ac=window.ac||(window.ac=new A());if(ac.state==="suspended")ac.resume();return ac;}
 function tone(f,d=.1,type="sine",delay=0){if(!soundsOn)return;try{const ac=audioCtx();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type=type;g.gain.setValueAtTime(.0001,ac.currentTime+delay);g.gain.exponentialRampToValueAtTime(.18,ac.currentTime+delay+.01);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+delay+d);o.connect(g);g.connect(ac.destination);o.start(ac.currentTime+delay);o.stop(ac.currentTime+delay+d+.02);}catch(e){}}
-function spinSound(){for(let i=0;i<22;i++)tone(250+i*15,.04,"square",i*.085);tone(800,.18,"sine",1.95);}
-function correctSound(){tone(523,.12);tone(659,.12,"sine",.12);tone(784,.25,"sine",.24);}
-function wrongSound(){tone(220,.2,"sawtooth");tone(165,.3,"sawtooth",.18);}
-function loseSound(){tone(300,.1,"triangle");tone(230,.1,"triangle",.12);tone(170,.25,"triangle",.24);}
+/* Sound effects: all synthesized with Web Audio, so there are no files to load. */
+let noiseBuf=null;
+function noise(ac){if(!noiseBuf){noiseBuf=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}return noiseBuf;}
+function sfx(fn){if(!soundsOn)return;try{const ac=audioCtx();fn(ac,ac.currentTime+.03);}catch(e){}}
+function env(ac,node,t,peak,attack,decay){const g=ac.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+attack+decay);node.connect(g);g.connect(ac.destination);return g;}
+function osc(ac,type,f,t,dur,peak,attack=.01){const o=ac.createOscillator();o.type=type;o.frequency.setValueAtTime(f,t);env(ac,o,t,peak,attack,dur);o.start(t);o.stop(t+attack+dur+.05);return o;}
+function noiseHit(ac,t,dur,peak,ftype,freq,q=1){const s=ac.createBufferSource();s.buffer=noise(ac);const f=ac.createBiquadFilter();f.type=ftype;f.frequency.value=freq;f.Q.value=q;s.connect(f);env(ac,f,t,peak,.003,dur);s.start(t,Math.random()*1.5);s.stop(t+dur+.05);return f;}
+function bell(ac,t,f,peak=.2){[1,2.76,5.4].forEach((m,i)=>osc(ac,"sine",f*m,t,i?.5:1.2,peak/(i*2+1),.005));}
+function applause(ac,t,dur,amount=1){const n=Math.round(90*dur*amount);for(let i=0;i<n;i++){const at=t+Math.random()*dur,fade=1-(at-t)/dur;noiseHit(ac,at,.05+Math.random()*.05,(.04+Math.random()*.1)*fade+.004,"bandpass",900+Math.random()*1800,1.2);}}
+// Wheel clicks timed to the CSS ease-out, so they slow down with the wheel.
+function wheelTicks(deg){sfx((ac,t)=>{const n=Math.floor(deg/36);for(let k=1;k<=n;k++){const at=t+4*(1-Math.cbrt(1-k/n));noiseHit(ac,at,.02,.22,"highpass",3000);osc(ac,"square",1500,at,.012,.03,.001);}});}
+function clickSound(){sfx((ac,t)=>osc(ac,"triangle",1200,t,.04,.07,.002));}
+function landSound(){sfx((ac,t)=>bell(ac,t,1046,.16));}
+function correctSound(){sfx((ac,t)=>{bell(ac,t,1318,.18);bell(ac,t+.14,1760,.18);[523,659,784,1046].forEach((f,i)=>osc(ac,"triangle",f,t+.3+i*.08,.35,.1));applause(ac,t+.25,2.2,.9);});}
+function wrongSound(){sfx((ac,t)=>{const lp=ac.createBiquadFilter();lp.type="lowpass";lp.frequency.value=900;const g=ac.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.2,t+.02);g.gain.setValueAtTime(.2,t+.55);g.gain.exponentialRampToValueAtTime(.0001,t+.75);lp.connect(g);g.connect(ac.destination);[110,116.5].forEach(f=>{const o=ac.createOscillator();o.type="sawtooth";o.frequency.value=f;o.connect(lp);o.start(t);o.stop(t+.8);});});}
+function stealSound(){sfx((ac,t)=>{t+=.8;const o=ac.createOscillator(),lp=ac.createBiquadFilter(),g=ac.createGain();o.type="square";lp.type="lowpass";lp.frequency.value=2000;o.connect(lp);lp.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.06,t+.05);g.gain.setValueAtTime(.06,t+1.3);g.gain.exponentialRampToValueAtTime(.0001,t+1.5);for(let i=0;i<3;i++){o.frequency.setValueAtTime(620,t+i*.5);o.frequency.linearRampToValueAtTime(980,t+i*.5+.25);o.frequency.linearRampToValueAtTime(620,t+i*.5+.5);}o.start(t);o.stop(t+1.55);});}
+function loseSound(){sfx((ac,t)=>{[293.7,277.2,261.6,246.9].forEach((f,i)=>{const at=t+i*.48,d=i===3?1.1:.42,o=ac.createOscillator(),lp=ac.createBiquadFilter();o.type="sawtooth";o.frequency.setValueAtTime(f,at);if(i===3){const lfo=ac.createOscillator(),lg=ac.createGain();lfo.frequency.value=6;lg.gain.value=5;lfo.connect(lg);lg.connect(o.frequency);lfo.start(at);lfo.stop(at+d+.1);}lp.type="lowpass";lp.frequency.value=1100;o.connect(lp);env(ac,lp,at,.15,.04,d);o.start(at);o.stop(at+d+.1);});});}
+function whooshSound(){sfx((ac,t)=>{const f=noiseHit(ac,t,.6,.22,"bandpass",300,2);f.frequency.setValueAtTime(300,t);f.frequency.exponentialRampToValueAtTime(3000,t+.5);});}
+function jackpotSound(){sfx((ac,t)=>{[523,659,784,1046,1318,1568].forEach((f,i)=>osc(ac,"square",f,t+i*.07,.25,.05));for(let i=0;i<12;i++)bell(ac,t+.45+i*.06,2000+Math.random()*2000,.04);});}
+function tickSound(){sfx((ac,t)=>{osc(ac,"sine",1600,t,.05,.14,.002);noiseHit(ac,t,.03,.07,"highpass",4000);});}
+function timeUpSound(){sfx((ac,t)=>[98,104].forEach(f=>osc(ac,"sawtooth",f,t,1,.11,.02)));}
+function drumrollSound(dur=1.6){sfx((ac,t)=>{for(let x=0;x<dur;x+=.045)noiseHit(ac,t+x,.06,.04+.12*(x/dur),"bandpass",250,.8);noiseHit(ac,t+dur,1.2,.28,"highpass",5000);osc(ac,"sine",80,t+dur,.5,.4,.005);});}
+function fanfareSound(){sfx((ac,t)=>{[[523,0,.18],[523,.2,.12],[523,.34,.12],[659,.5,.5],[784,1.05,.2],[659,1.28,.2],[784,1.5,.9]].forEach(([f,st,d])=>[1,1.005].forEach(det=>{const o=ac.createOscillator(),lp=ac.createBiquadFilter();o.type="sawtooth";o.frequency.value=f*det;lp.type="lowpass";lp.frequency.value=2400;o.connect(lp);env(ac,lp,t+st,.07,.03,d);o.start(t+st);o.stop(t+st+d+.1);}));applause(ac,t+.3,4,1.3);});}
+// Big on-screen announcement (CORRECT!, STEAL!, etc.)
+function flash(text,sub,kind){const f=$("flash");f.className="flash "+kind;f.innerHTML="";const a=document.createElement("div");a.textContent=text;f.appendChild(a);if(sub){const b=document.createElement("div");b.className="flash-sub";b.textContent=sub;f.appendChild(b);}void f.offsetWidth;f.classList.add("show");}
 function stopTimerMusic(){musicNodes.forEach(n=>{try{n.stop();}catch(e){}});musicNodes=[];}
 function startTimerMusic(){
  if(!soundsOn)return;
@@ -313,7 +356,7 @@ function startTimerMusic(){
    o.frequency.value=notes[i%notes.length];
    const start=ac.currentTime+i*step;
    g.gain.setValueAtTime(.0001,start);
-   g.gain.exponentialRampToValueAtTime(timerMode==="final"?.028:.035,start+.03);
+   g.gain.exponentialRampToValueAtTime(timerMode==="final"?.022:.025,start+.03);
    g.gain.exponentialRampToValueAtTime(.0001,start+step*.82);
    o.connect(g);g.connect(ac.destination);o.start(start);o.stop(start+step*.88);
    musicNodes.push(o);
@@ -355,31 +398,36 @@ function adjustScore(t,n){scores[t]=Math.max(0,scores[t]+n);updateScores();}
 function spinWheel(){
  if(state==="final-ready"){showFinal();return;}
  if(state!=="ready")return;
- nextPhase();turnOwner=currentTeam;stopSpeaking();spinSound();state="spinning";updateTeams();setMessage(`${tn(currentTeam)} is spinning...`);
+ nextPhase();turnOwner=currentTeam;stopSpeaking();state="spinning";updateTeams();setMessage(`${tn(currentTeam)} is spinning...`);
  const idx=Math.floor(Math.random()*segments.length),arc=360/segments.length;
  // Segment centers are drawn clockwise from 3 o'clock; the pointer sits at 12 o'clock (270°).
  const jitter=(Math.random()-.5)*arc*.6;
  const target=((270-(idx*arc+arc/2)+jitter)%360+360)%360;
  const current=((rotation%360)+360)%360;
- rotation+=1800+((target-current+360)%360);
+ const turn=1800+((target-current+360)%360);rotation+=turn;wheelTicks(turn);
  canvas.style.transform=`rotate(${rotation}deg)`;
  setTimeout(inPhase(()=>handleSegment(segments[idx])),4100);
 }
 function handleSegment(s){
  $("wheelResult").textContent=s.label;
- if(s.type==="spinagain"){state="ready";updateTeams();setMessage(`${tn(currentTeam)} spins again.`);speak(`${tn(currentTeam)}, spin again.`);return;}
- if(s.type==="lose"){loseSound();const lost=currentTeam;currentTeam=1-currentTeam;state="ready";updateTeams();setMessage(`${tn(lost)} lost the turn.`);speak(`${tn(lost)} loses the turn. ${tn(currentTeam)}, please spin the wheel.`);return;}
+ if(s.type==="spinagain"){whooshSound();flash("SPIN AGAIN!","","steal");state="ready";updateTeams();setMessage(`${tn(currentTeam)} spins again.`);speak(`Lucky you! Spin again, ${tn(currentTeam)}.`);return;}
+ if(s.type==="lose"){loseSound();flash("LOSE A TURN","","bad");const lost=currentTeam;currentTeam=1-currentTeam;state="ready";updateTeams();setMessage(`${tn(lost)} lost the turn.`);speak(`Oh no! ${tn(lost)} loses the turn. ${tn(currentTeam)}, you're up. Spin the wheel!`);return;}
  currentPoints=s.value;
+ if(s.value>=1000){jackpotSound();flash("JACKPOT!",`${s.value} points`,"gold");}else landSound();
  loadQuestion();
 }
 
 /* ---------- Choices ---------- */
 function answerText(q){return q.correct.map(i=>letter(i)+". "+q.options[i]).join("; ")}
-function spokenOptions(q){return q.options.map((o,i)=>letter(i)+", "+o).join(". ")}
+function endDot(t){return /[.!?:"”]$/.test(t)?t:t+".";}
+function spokenOptions(q){return q.type==="tf"?"":q.options.map((o,i)=>letter(i)+", "+endDot(o.replace(/[“”"]/g,""))).join(" ")}
+function spokenQuestion(q){return (q.type==="tf"?"True or false. ":"")+endDot(q.q)+" "+spokenOptions(q);}
+function spokenAnswer(q){return q.correct.map(i=>letter(i)+", "+q.options[i]).join(", and ");}
 function isCorrect(q,picked){const a=[...picked].sort((x,y)=>x-y),b=[...q.correct].sort((x,y)=>x-y);return a.length===b.length&&a.every((v,i)=>v===b[i]);}
 function canSelect(targetId){return targetId==="finalChoices"?isFinalState():(state==="question"||state==="steal");}
 function selectChoice(i,targetId,q){
  if(!canSelect(targetId))return;
+ clickSound();
  if(q.type==="sata"){
   if(selectedAnswers.includes(i))selectedAnswers=selectedAnswers.filter(x=>x!==i);else selectedAnswers.push(i);
  }else selectedAnswers=[i];
@@ -423,8 +471,8 @@ function startTimer(){
  const expire=inPhase(()=>submitAnswer(true));
  timerInt=setInterval(()=>{
   timeLeft--;showTime();
-  if(timeLeft<=5&&timeLeft>0)tone(760,.08,"square");
-  if(timeLeft<=0){stopTimer();tone(150,.5,"sawtooth");expire();}
+  if(timeLeft<=5&&timeLeft>0)tickSound();
+  if(timeLeft<=0){stopTimer();timeUpSound();expire();}
  },1000);
 }
 
@@ -441,7 +489,7 @@ function loadQuestion(){
  $("count").textContent=`Question ${qIndex+1} of ${gameQs.length}`;$("value").textContent=currentPoints+" points";
  updateTeams();
  setMessage(`${tn(currentTeam)}: choose your answer for ${currentPoints} points, then press Submit.`);
- speak(`Question ${qIndex+1}. ${questionTypeLabel(q)}. ${q.q} ${spokenOptions(q)}. The 30 second timer will begin in 3, 2, 1.`,inPhase(startTimer));
+ speak(`${tn(currentTeam)}, this one is for ${currentPoints} points. ${spokenQuestion(q)} You have 30 seconds. Go!`,inPhase(startTimer));
 }
 function submitAnswer(timeUp=false){
  if(!isAnswering())return;
@@ -449,23 +497,33 @@ function submitAnswer(timeUp=false){
  const q=final?FINAL:gameQs[qIndex],box=final?"finalChoices":"choices",pts=final?FINAL_POINTS:currentPoints;
  if(!timeUp&&selectedAnswers.length===0){setMessage(`${tn(currentTeam)}: click an answer before pressing Submit.`);return;}
  nextPhase();stopTimer();
- const lead=timeUp?(selectedAnswers.length?"Time is up. ":"Time is up and no answer was selected. "):"";
+ const lead=timeUp?(selectedAnswers.length?"Time's up! ":"Time's up, and no answer was picked. "):"";
  const team=currentTeam;
  if(isCorrect(q,selectedAnswers)){
-  correctSound();scores[currentTeam]+=pts;updateScores();
-  const msg=`${lead}Correct! ${tn(team)} ${stealing?"steals":"earns"} ${pts} points.`;
-  endRound(q,box,final,msg,`${msg} The answer is: ${answerText(q)}`);
+  // Correct: celebrate and move on. No answer review.
+  scores[team]+=pts;updateScores();revealChoices(q,box);
+  if(final){jackpotSound();flash("JACKPOT!",`+${pts} ${tn(team)}`,"gold");}
+  else{correctSound();flash(stealing?"STOLEN!":"CORRECT!",`+${pts} ${tn(team)}`,"good");}
+  const msg=`${lead}${pickLine(["That's right!","You got it!","Correct!","Nailed it!","Nice work!","Yes!"])} ${tn(team)} ${stealing?"steals":"earns"} ${pts} points.`;
+  setMessage(msg);
+  if(final){state="done";updateTeams();speak(msg,inPhase(announceWinner));return;}
+  state="advancing";updateTeams();
+  const go=inPhase(()=>announceScore(inPhase(finishQuestion)));
+  speak(msg,inPhase(()=>setTimeout(go,1200)));
  }else if(!stealing){
-  wrongSound();
-  currentTeam=1-currentTeam;state=final?"final-steal":"steal";
+  // Wrong: the other team gets a chance to steal the points.
+  wrongSound();stealSound();
+  currentTeam=1-team;state=final?"final-steal":"steal";
   currentTimerLength=15;timerMode="steal";
   clearChoiceSelection(box);updateTeams();
-  setMessage(`${lead}${tn(team)} is incorrect. ${tn(currentTeam)} may steal for ${pts} points — choose an answer and press Submit.`);
-  speak(`${lead}That is incorrect. ${tn(currentTeam)}, you have a chance to steal for ${pts} points. Choose one final answer and press Submit. The 15 second timer will begin in 3, 2, 1.`,inPhase(startTimer));
+  flash("STEAL!",`${tn(currentTeam)}: ${pts} points up for grabs`,"steal");
+  setMessage(`${lead}${tn(team)} missed it. ${tn(currentTeam)}, steal ${pts} points: choose an answer and press Submit.`);
+  speak(`${lead}${pickLine(["Ooh, not quite.","Sorry, that's not it.","Oh, so close!","Nope, not this time."])} ${tn(currentTeam)}, here's your chance to steal ${pts} points! You have 15 seconds. Go!`,inPhase(startTimer));
  }else{
-  wrongSound();
-  const msg=`${lead}The steal is incorrect. No points awarded.`;
-  endRound(q,box,final,msg,`${msg} The correct answer is: ${answerText(q)}`);
+  // Nobody got it: show the correct answer so the class can learn it.
+  wrongSound();flash("NO POINTS","",'bad');
+  const msg=`${lead}Not quite. Nobody gets the points this time.`;
+  endRound(q,box,final,msg,`${msg} The correct answer is ${spokenAnswer(q)}.`);
  }
 }
 function endRound(q,box,final,msg,spoken){
@@ -481,14 +539,14 @@ function nextTurn(){
 }
 function scoreUpdateText(){
  const s1=scores[0],s2=scores[1];
- if(s1===s2)return `The score is tied at ${s1} points each.`;
+ if(s1===s2)return `It's all tied up at ${s1} points each.`;
  const leader=s1>s2?0:1;
- return `${tn(leader)} is winning. The score is ${tn(0)}, ${s1} points, and ${tn(1)}, ${s2} points. ${tn(leader)} leads by ${Math.abs(s1-s2)} points.`;
+ return `${tn(leader)} lead${tn(leader).endsWith("s")?"":"s"}, ${Math.max(s1,s2)} to ${Math.min(s1,s2)}.`;
 }
 function announceScore(next){
  const completedQuestion=qIndex+1;
  if(completedQuestion%5!==0){next();return;}
- const update=`After ${completedQuestion} questions, ${scoreUpdateText()}`;
+ const update=`Score check! After ${completedQuestion} questions, ${scoreUpdateText()}`;
  const box=$("scoreReport");box.textContent=update;box.style.display="block";
  setMessage(update);
  speak(update,()=>setTimeout(()=>{box.style.display="none";next();},700));
@@ -504,11 +562,11 @@ function finishQuestion(){
  $("qtext").textContent=done?"Regular questions complete. Final Jackpot is ready!":"Spin the wheel to load the next question.";
  $("value").textContent="—";$("answer").style.display="none";$("choices").innerHTML="";$("typeHint").textContent="";
  if(done)setTimeout(inPhase(showFinal),500);
- else{setMessage(`${tn(currentTeam)} spins next.`);speak(`${tn(currentTeam)}, it is your turn. Please spin the wheel.`);}
+ else{setMessage(`${tn(currentTeam)} spins next.`);speak(`${tn(currentTeam)}, you're up. Spin the wheel!`);}
 }
 function repeatQuestion(){
  if(state==="final"||state==="final-steal"||state==="final-ready"){readFinal();return;}
- if(qIndex<gameQs.length&&state!=="ready"&&state!=="spinning"){const q=gameQs[qIndex];speak(`Question ${qIndex+1}. ${questionTypeLabel(q)}. ${q.q} ${spokenOptions(q)}`,null,true);}
+ if(qIndex<gameQs.length&&state!=="ready"&&state!=="spinning"){speak(spokenQuestion(gameQs[qIndex]),null,true);}
 }
 function syncToggleLabels(){$("autoBtn").textContent="Auto-Read: "+(autoRead?"ON":"OFF");$("soundBtn").textContent="Sounds: "+(soundsOn?"ON":"OFF");}
 function toggleAutoRead(){autoRead=!autoRead;syncToggleLabels();if(!autoRead)stopSpeaking();saveGame();}
@@ -575,14 +633,14 @@ function startNewGame(){
  gameOrder=buildGameOrder(v==="all"?QUESTIONS.length:Math.min(+v,TEST_TOPICS.length));
  applyGame({scores:[0,0],qIndex:0,currentTeam:0,state:"ready"});
  setMessage(`${tn(0)} begins the game.`);
- speak(`Welcome to Gyn-eopardy! ${tn(0)} begins. Please spin the wheel.`);
+ speak(`Welcome to Guy-neppar-dee! ${tn(0)}, you're up first. Spin the wheel!`);
 }
 function resumeGame(){
  const g=loadSave();if(!g){showSetup();return;}
  teamNames=g.names.map((n,i)=>String(n).slice(0,20)||DEFAULT_NAMES[i]);gameOrder=g.order;
  autoRead=g.autoRead!==false;soundsOn=g.soundsOn!==false;syncToggleLabels();
  applyGame(g);
- const msg=state==="final-ready"?`Welcome back. ${tn(currentTeam)} is up for the Final Jackpot. Press OPEN FINAL JACKPOT.`:`Welcome back. ${scoreUpdateText()} ${tn(currentTeam)}, please spin the wheel.`;
+ const msg=state==="final-ready"?`Welcome back! ${tn(currentTeam)} is up for the Final Jackpot. Press OPEN FINAL JACKPOT.`:`Welcome back! ${scoreUpdateText()} ${tn(currentTeam)}, spin the wheel!`;
  setMessage(msg);speak(msg);
 }
 
@@ -599,9 +657,10 @@ function showFinal(){
  $("finalModal").style.display="flex";
  updateTeams();
  setMessage(`${tn(currentTeam)}: choose your answer for ${FINAL_POINTS} points, then press Submit.`);
- speak(`Question ${gameQs.length+1}. Final jackpot for ${FINAL_POINTS} points. ${tn(currentTeam)}, this one is yours. ${questionTypeLabel(FINAL)}. ${FINAL.q} ${spokenOptions(FINAL)}. The ${currentTimerLength} second timer will begin in 3, 2, 1.`,inPhase(startTimer));
+ drumrollSound();
+ setTimeout(inPhase(()=>speak(`It's time for the Final Jackpot, worth ${FINAL_POINTS} points! ${tn(currentTeam)}, this one is yours. ${spokenQuestion(FINAL)} You have ${currentTimerLength} seconds. Go!`,inPhase(startTimer))),1700);
 }
-function readFinal(){speak(`Question ${gameQs.length+1}. Final jackpot. ${FINAL.q} ${spokenOptions(FINAL)}`,null,true);}
+function readFinal(){speak(`Final Jackpot. ${spokenQuestion(FINAL)}`,null,true);}
 function launchConfetti(){
  const colors=["#ffcc33","#22c58b","#ffffff","#1f44e0","#f97316"];
  for(let i=0;i<120;i++){
@@ -617,14 +676,15 @@ function launchConfetti(){
 }
 function announceWinner(){
  let msg;
- if(scores[0]===scores[1])msg=`The game ends in a tie. Both teams have ${scores[0]} points.`;
+ if(scores[0]===scores[1]){msg=`And that's the game! It ends in a tie, ${scores[0]} to ${scores[1]}. Great job, everyone!`;flash("IT'S A TIE!","","gold");}
  else{
-  const winner=scores[0]>scores[1]?0:1;
-  msg=`${tn(winner)} wins the game. Final score: ${tn(0)}, ${scores[0]} points. ${tn(1)}, ${scores[1]} points.`;
+  const w=scores[0]>scores[1]?0:1,name=tn(w);
+  msg=`And that's the game! ${name} win${name.endsWith("s")?"":"s"}, ${scores[w]} to ${scores[1-w]}. Congratulations!`;
+  flash(`${name.toUpperCase()} WIN${name.endsWith("s")?"":"S"}!`,`${scores[w]} to ${scores[1-w]}`,"gold");
  }
  setMessage(msg);
- launchConfetti();
- speak(msg);
+ launchConfetti();fanfareSound();
+ setTimeout(()=>speak(msg),900);
 }
 function closeFinal(){
  $("finalModal").style.display="none";document.body.classList.remove("final-mode");
