@@ -43,10 +43,10 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 .progress{height:14px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:14px}
 .progress div{height:100%;background:var(--green);width:0}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:18px}
-.modalbox{background:white;max-width:750px;width:100%;padding:24px;border-radius:18px;max-height:90vh;overflow:auto}
-#timer.green{color:#16815b}
-#timer.yellow{color:#b8860b}
-#timer.red{color:#c0392b;animation:pulseTimer .6s infinite alternate}
+.modalbox{background:white;color:var(--dark);max-width:750px;width:100%;padding:24px;border-radius:18px;max-height:90vh;overflow:auto}
+.timer.green{color:#16815b}
+.timer.yellow{color:#b8860b}
+.timer.red{color:#c0392b;animation:pulseTimer .6s infinite alternate}
 @keyframes pulseTimer{from{transform:scale(1)}to{transform:scale(1.12)}}
 .steal-mode{background:linear-gradient(135deg,#fff0f0,#ffe9cc)!important}
 .final-mode{background:radial-gradient(circle at top,#232946,#0f172a)!important;color:white}
@@ -55,6 +55,8 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 .final-mode .badge{background:#374151;color:white}
 .confetti-piece{position:fixed;width:10px;height:18px;top:-20px;z-index:9999;animation:fall 3.2s linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.9}}
+.choice.correct{border-color:#16815b;background:#b9ecd0;box-shadow:0 0 0 3px rgba(22,129,91,.35)}.choice.correct .letter{background:#16815b;color:#fff}.choice.wrong{border-color:#c0392b;background:#f9c9c4}.choice.wrong .letter{background:#c0392b;color:#fff}.choices.locked .choice{cursor:default;transform:none}
+.modalbox .meta{margin-bottom:10px}
 .score-report{font-size:28px;font-weight:900;text-align:center;padding:18px;border-radius:16px;background:#fff5cc;border:3px solid var(--gold);margin-top:14px}
 @media(max-width:850px){.grid{grid-template-columns:1fr}canvas{width:240px;height:240px}}
 </style>
@@ -88,21 +90,16 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 
 <section class="card question-card">
 <div class="meta">
-<span class="badge" id="count">Question 0 of <span id="questionTotal">54</span></span>
+<span class="badge" id="count">Question 0 of 0</span>
 <span class="badge">Value: <span id="value">—</span></span>
 <span class="timer" id="timer">30</span>
 </div>
 <div class="question"><div><div class="qnum" id="qnum">QUESTION —</div><div id="qtext">Spin the wheel to load a question.</div></div></div>
 <div id="typeHint" class="typehint"></div><div id="choices" class="choices"></div><div class="answer" id="answer"></div>
 
-<div class="controls" id="judgeControls">
-<button class="yes" id="yesBtn" onclick="answerYes()" disabled>✓ YES, CORRECT</button>
-<button class="no" id="noBtn" onclick="answerNo()" disabled>✗ NO</button>
-</div>
-
-<div class="controls" id="stealControls" style="display:none">
-<button class="yes" onclick="stealCorrect()">✓ STEAL CORRECT</button>
-<button class="no" onclick="stealWrong()">✗ STEAL INCORRECT / NO STEAL</button>
+<div class="controls">
+<button class="yes" id="submitBtn" onclick="submitAnswer()" style="display:none">✓ SUBMIT ANSWER</button>
+<button class="primary" id="nextBtn" onclick="nextTurn()" style="display:none">NEXT TURN ▶</button>
 </div>
 
 <div class="audio">
@@ -120,14 +117,13 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 
 <div class="modal" id="finalModal">
 <div class="modalbox">
-<h2 id="finalHeading">Final Jackpot</h2>
+<div class="meta"><h2 id="finalHeading">Final Jackpot</h2><span class="timer" id="finalTimer">30</span></div>
+<div id="finalMessage" class="message"></div>
 <p id="finalText"></p><div id="finalChoices" class="choices"></div>
 <div class="answer" id="finalAnswer"></div>
 <div class="controls">
+<button class="yes" id="finalSubmitBtn" onclick="submitAnswer()" disabled>✓ SUBMIT ANSWER</button>
 <button class="secondary" onclick="readFinal()">Read Final Question</button>
-<button class="secondary" onclick="showFinalAnswer()">Show/Read Answer</button>
-<button class="yes" onclick="awardFinal(0)">Award Team 1</button>
-<button class="yes" onclick="awardFinal(1)">Award Team 2</button>
 <button class="secondary" onclick="closeFinal()">Close</button>
 </div>
 </div>
@@ -139,14 +135,23 @@ const FINAL={"type":"mc","q":"A 46-year-old woman with obesity and chronic const
 const segments=[
 {label:"100",type:"points",value:100},{label:"200",type:"points",value:200},
 {label:"300",type:"points",value:300},{label:"400",type:"points",value:400},
-{label:"500",type:"points",value:500},{label:"DOUBLE",type:"double"},
-{label:"+200 BONUS",type:"bonus"},{label:"SPIN AGAIN",type:"spinagain"},
+{label:"500",type:"points",value:500},{label:"DOUBLE 600",type:"points",value:600},
+{label:"BONUS 500",type:"points",value:500},{label:"SPIN AGAIN",type:"spinagain"},
 {label:"LOSE TURN",type:"lose"},{label:"JACKPOT",type:"points",value:1000}
 ];
+const FINAL_POINTS=1000;
+// state: ready | spinning | question | steal | reveal | advancing | final-ready | final | final-steal | done
 let scores=[0,0],currentTeam=0,turnOwner=0,currentPoints=0,qIndex=0,state="ready";
-let timerInt=null,timeLeft=30,currentTimerLength=30,rotation=0,autoRead=true,soundsOn=true,selectedVoice=null,musicNodes=[],timerMode="question";
+let timerInt=null,timeLeft=30,currentTimerLength=30,rotation=0,autoRead=true,soundsOn=true,selectedVoice=null,userPickedVoice=false,musicNodes=[],timerMode="question";
+let selectedAnswers=[];
+// Every game step gets a phase id; delayed callbacks (speech end, timers, timeouts) only run if their phase is still current.
+let phaseId=0;
+function nextPhase(){return ++phaseId;}
+function inPhase(fn){const id=phaseId;return (...a)=>{if(id===phaseId)fn(...a);};}
+const $=id=>document.getElementById(id);
+const letter=i=>String.fromCharCode(65+i);
 
-const canvas=document.getElementById("wheel"),ctx=canvas.getContext("2d");
+const canvas=$("wheel"),ctx=canvas.getContext("2d");
 function drawWheel(){
  const arc=2*Math.PI/segments.length;
  segments.forEach((s,i)=>{ctx.beginPath();ctx.moveTo(250,250);ctx.arc(250,250,240,i*arc,(i+1)*arc);ctx.closePath();
@@ -155,89 +160,56 @@ function drawWheel(){
 }
 drawWheel();
 
+/* ---------- Speech ---------- */
+const hasSpeech="speechSynthesis" in window;
+let pendingSpeech=null,currentUtt=null,speechWatch=null;
 function loadVoices(){
  const voices=speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.startsWith("en"));
+ const prevName=selectedVoice&&selectedVoice.name;
+ let pick=userPickedVoice?voices.find(v=>v.name===prevName):null;
  const prefs=[/Natural/i,/Neural/i,/Microsoft Ava/i,/Microsoft Jenny/i,/Microsoft Aria/i,/Google US English/i,/Samantha/i];
- selectedVoice=null;
- for(const p of prefs){selectedVoice=voices.find(v=>p.test(v.name));if(selectedVoice)break;}
- selectedVoice=selectedVoice||voices.find(v=>v.lang==="en-US")||voices[0]||null;
- const s=document.getElementById("voiceSelect");s.innerHTML="";
+ if(!pick)for(const p of prefs){pick=voices.find(v=>p.test(v.name));if(pick)break;}
+ selectedVoice=pick||voices.find(v=>v.lang==="en-US")||voices[0]||null;
+ const s=$("voiceSelect");s.innerHTML="";
  voices.forEach(v=>{const o=document.createElement("option");o.value=v.name;o.textContent=v.name+" ("+v.lang+")";s.appendChild(o);});
  if(selectedVoice)s.value=selectedVoice.name;
 }
-if("speechSynthesis" in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
-function changeVoice(){selectedVoice=speechSynthesis.getVoices().find(v=>v.name===document.getElementById("voiceSelect").value)||selectedVoice;speak("This is the selected game voice.");}
-function speak(t,onend=null){if(!autoRead||!("speechSynthesis" in window)){if(onend)onend();return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=0.98;u.pitch=1.02;if(selectedVoice)u.voice=selectedVoice;if(onend)u.onend=onend;speechSynthesis.speak(u);}
-function stopSpeaking(){if("speechSynthesis" in window)speechSynthesis.cancel();}
+if(hasSpeech){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
+function changeVoice(){if(!hasSpeech)return;selectedVoice=speechSynthesis.getVoices().find(v=>v.name===$("voiceSelect").value)||selectedVoice;userPickedVoice=true;speak("This is the selected game voice.",null,true);}
+function finishSpeech(){const p=pendingSpeech;pendingSpeech=null;currentUtt=null;clearTimeout(speechWatch);if(p)p();}
+// onend always runs exactly once: when speech ends, errors, is interrupted, is stopped, or is unavailable.
+function speak(t,onend=null,force=false){
+ if(onend)finishSpeech();
+ else if(pendingSpeech){onend=pendingSpeech;pendingSpeech=null;} // a re-read keeps the pending game step
+ if(!(autoRead||force)||!hasSpeech){currentUtt=null;clearTimeout(speechWatch);if(onend)onend();return;}
+ speechSynthesis.cancel();clearTimeout(speechWatch);
+ const u=new SpeechSynthesisUtterance(t),token={};
+ u.rate=0.98;u.pitch=1.02;if(selectedVoice)u.voice=selectedVoice;
+ currentUtt=token;pendingSpeech=onend;
+ const done=()=>{if(currentUtt===token)finishSpeech();};
+ u.onend=done;u.onerror=done;
+ // Safety net: some browsers silently drop long utterances without firing onend.
+ const est=t.length*90+3000,started=Date.now();
+ const watch=()=>{if(currentUtt!==token)return;if(!speechSynthesis.speaking||Date.now()-started>est*2)done();else speechWatch=setTimeout(watch,1000);};
+ speechWatch=setTimeout(watch,est);
+ speechSynthesis.speak(u);
+}
+function stopSpeaking(){if(hasSpeech)speechSynthesis.cancel();finishSpeech();}
+function silenceSpeech(){pendingSpeech=null;currentUtt=null;clearTimeout(speechWatch);if(hasSpeech)speechSynthesis.cancel();}
 
-function tone(f,d=.1,type="sine",delay=0){if(!soundsOn)return;try{const A=window.AudioContext||window.webkitAudioContext;const ac=window.ac||(window.ac=new A());if(ac.state==="suspended")ac.resume();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type=type;g.gain.setValueAtTime(.0001,ac.currentTime+delay);g.gain.exponentialRampToValueAtTime(.18,ac.currentTime+delay+.01);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+delay+d);o.connect(g);g.connect(ac.destination);o.start(ac.currentTime+delay);o.stop(ac.currentTime+delay+d+.02);}catch(e){}}
+/* ---------- Sound ---------- */
+function audioCtx(){const A=window.AudioContext||window.webkitAudioContext;const ac=window.ac||(window.ac=new A());if(ac.state==="suspended")ac.resume();return ac;}
+function tone(f,d=.1,type="sine",delay=0){if(!soundsOn)return;try{const ac=audioCtx();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type=type;g.gain.setValueAtTime(.0001,ac.currentTime+delay);g.gain.exponentialRampToValueAtTime(.18,ac.currentTime+delay+.01);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+delay+d);o.connect(g);g.connect(ac.destination);o.start(ac.currentTime+delay);o.stop(ac.currentTime+delay+d+.02);}catch(e){}}
 function spinSound(){for(let i=0;i<22;i++)tone(250+i*15,.04,"square",i*.085);tone(800,.18,"sine",1.95);}
 function correctSound(){tone(523,.12);tone(659,.12,"sine",.12);tone(784,.25,"sine",.24);}
 function wrongSound(){tone(220,.2,"sawtooth");tone(165,.3,"sawtooth",.18);}
 function loseSound(){tone(300,.1,"triangle");tone(230,.1,"triangle",.12);tone(170,.25,"triangle",.24);}
-
-function setBanner(text){const b=document.getElementById("turnBanner");b.textContent=text;b.className="banner "+(currentTeam===0?"team1":"team2");}
-function setMessage(t){document.getElementById("message").textContent=t;}
-function updateTeams(){document.getElementById("team1").classList.toggle("active",currentTeam===0);document.getElementById("team2").classList.toggle("active",currentTeam===1);setBanner(`TEAM ${currentTeam+1} — ${state==="steal"?"STEAL CHANCE":"SPIN NOW"}`);}
-function updateScores(){document.getElementById("score1").textContent=scores[0];document.getElementById("score2").textContent=scores[1];}
-function adjustScore(t,n){scores[t]=Math.max(0,scores[t]+n);updateScores();}
-
-function spinWheel(){
- if(state!=="ready")return;turnOwner=currentTeam;stopSpeaking();spinSound();state="spinning";document.getElementById("spinBtn").disabled=true;setMessage(`Team ${currentTeam+1} is spinning...`);
- const idx=Math.floor(Math.random()*segments.length),arc=360/segments.length;rotation+=2160+(360-(idx*arc+arc/2)-90);canvas.style.transform=`rotate(${rotation}deg)`;
- setTimeout(()=>handleSegment(segments[idx]),4100);
-}
-function handleSegment(s){
- document.getElementById("wheelResult").textContent=s.label;
- if(s.type==="spinagain"){state="ready";document.getElementById("spinBtn").disabled=false;setMessage(`Team ${currentTeam+1} spins again.`);speak(`Team ${currentTeam+1}, spin again.`);return;}
- if(s.type==="lose"){loseSound();const lost=currentTeam;currentTeam=1-currentTeam;state="ready";updateTeams();document.getElementById("spinBtn").disabled=false;setMessage(`Team ${lost+1} lost the turn.`);speak(`Team ${lost+1} loses the turn. Team ${currentTeam+1}, please spin the wheel.`);return;}
- currentPoints=s.type==="double"?600:s.type==="bonus"?500:s.value;
- loadQuestion();
-}
-let selectedAnswers=[];
-function answerText(q){return q.correct.map(i=>String.fromCharCode(65+i)+". "+q.options[i]).join("; ")}
-function selectChoice(i,targetId="choices",q=null){
- q=q||(targetId==="finalChoices"?FINAL:QUESTIONS[qIndex]);
- if(!q)return;
- if(q.type==="sata"){
-  if(selectedAnswers.includes(i))selectedAnswers=selectedAnswers.filter(x=>x!==i);else selectedAnswers.push(i);
- }else selectedAnswers=[i];
- const box=document.getElementById(targetId);if(!box)return;
- [...box.querySelectorAll(".choice")].forEach((el,idx)=>el.classList.toggle("selected",selectedAnswers.includes(idx)));
-}
-function clearChoiceSelection(targetId="choices"){
- selectedAnswers=[];
- const box=document.getElementById(targetId);if(box)[...box.querySelectorAll(".choice")].forEach(el=>el.classList.remove("selected"));
-}
-function renderChoices(q,targetId="choices"){
- const box=document.getElementById(targetId);if(!box)return;
- box.innerHTML=q.options.map((opt,i)=>'<div class="choice" role="button" tabindex="0" data-choice="'+i+'"><span class="letter">'+String.fromCharCode(65+i)+'.</span>'+opt+'</div>').join("");
- [...box.querySelectorAll(".choice")].forEach((el,i)=>{el.onclick=()=>selectChoice(i,targetId,q);el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectChoice(i,targetId,q)}}});
-}
-function questionTypeLabel(q){return (q.type==="sata"?"SELECT ALL THAT APPLY — click every answer you choose":q.type==="tf"?"TRUE / FALSE — click your answer":"MULTIPLE CHOICE — click your answer")}
-function loadQuestion(){
- if(qIndex>=QUESTIONS.length){showFinal();return;}
- const q=QUESTIONS[qIndex];clearChoiceSelection();document.getElementById("qnum").textContent=`QUESTION ${qIndex+1}`;document.getElementById("qtext").textContent=q.q;
- document.getElementById("typeHint").textContent=questionTypeLabel(q);renderChoices(q);
- document.getElementById("answer").textContent=`Correct answer: ${answerText(q)}`;document.getElementById("answer").style.display="none";
- document.getElementById("count").textContent=`Question ${qIndex+1} of ${QUESTIONS.length}`;document.getElementById("value").textContent=currentPoints+" points";
- currentTimerLength=30; timerMode="question"; document.body.classList.remove("steal-mode","final-mode"); state="question";document.getElementById("yesBtn").disabled=false;document.getElementById("noBtn").disabled=false;
- document.getElementById("judgeControls").style.display="flex";document.getElementById("stealControls").style.display="none";
- setMessage(`Team ${currentTeam+1}: answer for ${currentPoints} points.`);
- const spokenOptions=q.options.map((o,i)=>String.fromCharCode(65+i)+", "+o).join(". ");
- speak(`Question ${qIndex+1}. ${questionTypeLabel(q)}. ${q.q} ${spokenOptions}. The 30 second timer will begin in 3, 2, 1.`,startTimer);
-}
-function stopTimerMusic(){
- musicNodes.forEach(n=>{try{n.stop();}catch(e){}});
- musicNodes=[];
-}
+function stopTimerMusic(){musicNodes.forEach(n=>{try{n.stop();}catch(e){}});musicNodes=[];}
 function startTimerMusic(){
  if(!soundsOn)return;
  stopTimerMusic();
  try{
-  const A=window.AudioContext||window.webkitAudioContext;
-  const ac=window.ac||(window.ac=new A());
-  if(ac.state==="suspended")ac.resume();
+  const ac=audioCtx();
   const questionNotes=[261.6,329.6,392,329.6,293.7,349.2,440,349.2];
   const stealNotes=[220,277.2,329.6,277.2,246.9,311.1,370,311.1];
   const finalNotes=[196,246.9,293.7,392,293.7,246.9];
@@ -257,74 +229,227 @@ function startTimerMusic(){
   }
  }catch(e){}
 }
+
+/* ---------- Screen state ---------- */
+const isFinalState=()=>state==="final"||state==="final-steal";
+const isAnswering=()=>state==="question"||state==="steal"||isFinalState();
+function setMessage(t){$("message").textContent=t;$("finalMessage").textContent=t;}
+function bannerText(){
+ const t=`TEAM ${currentTeam+1} — `;
+ switch(state){
+  case "steal":case "final-steal":return t+"STEAL CHANCE";
+  case "question":case "final":return t+"ANSWER NOW";
+  case "final-ready":return "FINAL JACKPOT";
+  case "done":return "GAME OVER";
+  case "reveal":case "advancing":return "ROUND OVER";
+  default:return t+"SPIN NOW";
+ }
+}
+function updateTeams(){
+ $("team1").classList.toggle("active",currentTeam===0);$("team2").classList.toggle("active",currentTeam===1);
+ const b=$("turnBanner");b.textContent=bannerText();b.className="banner "+(currentTeam===0?"team1":"team2");
+ const spin=$("spinBtn");
+ spin.disabled=!(state==="ready"||state==="final-ready");
+ spin.textContent=state==="final-ready"?"OPEN FINAL JACKPOT":state==="done"?"GAME OVER":"SPIN THE WHEEL";
+ $("submitBtn").style.display=(state==="question"||state==="steal")?"inline-block":"none";
+ $("nextBtn").style.display=state==="reveal"?"inline-block":"none";
+ $("finalSubmitBtn").disabled=!isFinalState();
+ document.body.classList.toggle("steal-mode",state==="steal"||state==="final-steal");
+}
+function updateScores(){$("score1").textContent=scores[0];$("score2").textContent=scores[1];}
+function adjustScore(t,n){scores[t]=Math.max(0,scores[t]+n);updateScores();}
+
+/* ---------- Wheel ---------- */
+function spinWheel(){
+ if(state==="final-ready"){showFinal();return;}
+ if(state!=="ready")return;
+ nextPhase();turnOwner=currentTeam;stopSpeaking();spinSound();state="spinning";updateTeams();setMessage(`Team ${currentTeam+1} is spinning...`);
+ const idx=Math.floor(Math.random()*segments.length),arc=360/segments.length;
+ // Segment centers are drawn clockwise from 3 o'clock; the pointer sits at 12 o'clock (270°).
+ const jitter=(Math.random()-.5)*arc*.6;
+ const target=((270-(idx*arc+arc/2)+jitter)%360+360)%360;
+ const current=((rotation%360)+360)%360;
+ rotation+=1800+((target-current+360)%360);
+ canvas.style.transform=`rotate(${rotation}deg)`;
+ setTimeout(inPhase(()=>handleSegment(segments[idx])),4100);
+}
+function handleSegment(s){
+ $("wheelResult").textContent=s.label;
+ if(s.type==="spinagain"){state="ready";updateTeams();setMessage(`Team ${currentTeam+1} spins again.`);speak(`Team ${currentTeam+1}, spin again.`);return;}
+ if(s.type==="lose"){loseSound();const lost=currentTeam;currentTeam=1-currentTeam;state="ready";updateTeams();setMessage(`Team ${lost+1} lost the turn.`);speak(`Team ${lost+1} loses the turn. Team ${currentTeam+1}, please spin the wheel.`);return;}
+ currentPoints=s.value;
+ loadQuestion();
+}
+
+/* ---------- Choices ---------- */
+function answerText(q){return q.correct.map(i=>letter(i)+". "+q.options[i]).join("; ")}
+function spokenOptions(q){return q.options.map((o,i)=>letter(i)+", "+o).join(". ")}
+function isCorrect(q,picked){const a=[...picked].sort((x,y)=>x-y),b=[...q.correct].sort((x,y)=>x-y);return a.length===b.length&&a.every((v,i)=>v===b[i]);}
+function canSelect(targetId){return targetId==="finalChoices"?isFinalState():(state==="question"||state==="steal");}
+function selectChoice(i,targetId,q){
+ if(!canSelect(targetId))return;
+ if(q.type==="sata"){
+  if(selectedAnswers.includes(i))selectedAnswers=selectedAnswers.filter(x=>x!==i);else selectedAnswers.push(i);
+ }else selectedAnswers=[i];
+ [...$(targetId).querySelectorAll(".choice")].forEach((el,idx)=>el.classList.toggle("selected",selectedAnswers.includes(idx)));
+}
+function clearChoiceSelection(targetId="choices"){
+ selectedAnswers=[];
+ const box=$(targetId);if(box)[...box.querySelectorAll(".choice")].forEach(el=>el.classList.remove("selected"));
+}
+function renderChoices(q,targetId="choices"){
+ const box=$(targetId);box.innerHTML="";box.classList.remove("locked");
+ q.options.forEach((opt,i)=>{
+  const el=document.createElement("div");el.className="choice";el.setAttribute("role","button");el.tabIndex=0;
+  const l=document.createElement("span");l.className="letter";l.textContent=letter(i)+".";
+  el.append(l,document.createTextNode(opt));
+  el.onclick=()=>selectChoice(i,targetId,q);
+  el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectChoice(i,targetId,q)}};
+  box.appendChild(el);
+ });
+}
+function revealChoices(q,targetId){
+ const box=$(targetId);box.classList.add("locked");
+ [...box.querySelectorAll(".choice")].forEach((el,i)=>{
+  el.classList.toggle("correct",q.correct.includes(i));
+  el.classList.toggle("wrong",selectedAnswers.includes(i)&&!q.correct.includes(i));
+ });
+}
+function questionTypeLabel(q){return q.type==="sata"?"SELECT ALL THAT APPLY — click every answer you choose, then press Submit":q.type==="tf"?"TRUE / FALSE — click your answer, then press Submit":"MULTIPLE CHOICE — click your answer, then press Submit"}
+
+/* ---------- Timer ---------- */
+function showTime(){
+ [$("timer"),$("finalTimer")].forEach(t=>{
+  t.textContent=timeLeft;t.classList.remove("green","yellow","red");
+  t.classList.add(timeLeft>15?"green":timeLeft>5?"yellow":"red");
+ });
+}
+function stopTimer(){clearInterval(timerInt);stopTimerMusic();}
 function startTimer(){
- clearInterval(timerInt);
- stopTimerMusic();
- timeLeft=currentTimerLength;
- const timerEl=document.getElementById("timer");
- timerEl.textContent=timeLeft;
- updateTimerColor();
- startTimerMusic();
+ stopTimer();
+ timeLeft=currentTimerLength;showTime();startTimerMusic();
+ const expire=inPhase(()=>submitAnswer(true));
  timerInt=setInterval(()=>{
-  timeLeft--;
-  timerEl.textContent=timeLeft;
-  updateTimerColor();
+  timeLeft--;showTime();
   if(timeLeft<=5&&timeLeft>0)tone(760,.08,"square");
-  if(timeLeft<=0){
-   clearInterval(timerInt);
-   stopTimerMusic();
-   tone(150,.5,"sawtooth");
-   setMessage("Time is up. Mark whether the team's selected answer was correct.");
-   speak("Time is up. Was the team's selected answer correct?");
-  }
+  if(timeLeft<=0){stopTimer();tone(150,.5,"sawtooth");expire();}
  },1000);
 }
-function updateTimerColor(){
- const t=document.getElementById("timer");
- t.classList.remove("green","yellow","red");
- if(timeLeft>15)t.classList.add("green");
- else if(timeLeft>5)t.classList.add("yellow");
- else t.classList.add("red");
+
+/* ---------- Question flow ---------- */
+function loadQuestion(){
+ if(qIndex>=QUESTIONS.length){showFinal();return;}
+ nextPhase();
+ const q=QUESTIONS[qIndex];
+ state="question";currentTimerLength=30;timerMode="question";
+ document.body.classList.remove("final-mode");
+ clearChoiceSelection();renderChoices(q);
+ $("qnum").textContent=`QUESTION ${qIndex+1}`;$("qtext").textContent=q.q;$("typeHint").textContent=questionTypeLabel(q);
+ $("answer").textContent=`Correct answer: ${answerText(q)}`;$("answer").style.display="none";
+ $("count").textContent=`Question ${qIndex+1} of ${QUESTIONS.length}`;$("value").textContent=currentPoints+" points";
+ updateTeams();
+ setMessage(`Team ${currentTeam+1}: choose your answer for ${currentPoints} points, then press Submit.`);
+ speak(`Question ${qIndex+1}. ${questionTypeLabel(q)}. ${q.q} ${spokenOptions(q)}. The 30 second timer will begin in 3, 2, 1.`,inPhase(startTimer));
+}
+function submitAnswer(timeUp=false){
+ if(!isAnswering())return;
+ const final=isFinalState(),stealing=state==="steal"||state==="final-steal";
+ const q=final?FINAL:QUESTIONS[qIndex],box=final?"finalChoices":"choices",pts=final?FINAL_POINTS:currentPoints;
+ if(!timeUp&&selectedAnswers.length===0){setMessage(`Team ${currentTeam+1}: click an answer before pressing Submit.`);return;}
+ nextPhase();stopTimer();
+ const lead=timeUp?(selectedAnswers.length?"Time is up. ":"Time is up and no answer was selected. "):"";
+ const team=currentTeam+1;
+ if(isCorrect(q,selectedAnswers)){
+  correctSound();scores[currentTeam]+=pts;updateScores();
+  const msg=`${lead}Correct! Team ${team} ${stealing?"steals":"earns"} ${pts} points.`;
+  endRound(q,box,final,msg,`${msg} The answer is: ${answerText(q)}`);
+ }else if(!stealing){
+  wrongSound();
+  currentTeam=1-currentTeam;state=final?"final-steal":"steal";
+  currentTimerLength=15;timerMode="steal";
+  clearChoiceSelection(box);updateTeams();
+  setMessage(`${lead}Team ${team} is incorrect. Team ${currentTeam+1} may steal for ${pts} points — choose an answer and press Submit.`);
+  speak(`${lead}That is incorrect. Team ${currentTeam+1}, you have a chance to steal for ${pts} points. Choose one final answer and press Submit. The 15 second timer will begin in 3, 2, 1.`,inPhase(startTimer));
+ }else{
+  wrongSound();
+  const msg=`${lead}The steal is incorrect. No points awarded.`;
+  endRound(q,box,final,msg,`${msg} The correct answer is: ${answerText(q)}`);
+ }
+}
+function endRound(q,box,final,msg,spoken){
+ revealChoices(q,box);
+ $(final?"finalAnswer":"answer").style.display="block";
+ if(final){state="done";updateTeams();setMessage(msg);speak(spoken,inPhase(announceWinner));return;}
+ state="reveal";updateTeams();setMessage(msg+" Press NEXT TURN to continue.");speak(spoken);
+}
+function nextTurn(){
+ if(state!=="reveal")return;
+ nextPhase();state="advancing";updateTeams();
+ announceScore(inPhase(finishQuestion));
 }
 function scoreUpdateText(){
  const s1=scores[0],s2=scores[1];
  if(s1===s2)return `The score is tied at ${s1} points each.`;
  const leader=s1>s2?1:2;
- const lead=Math.abs(s1-s2);
- return `Team ${leader} is winning. The score is Team 1, ${s1} points, and Team 2, ${s2} points. Team ${leader} leads by ${lead} points.`;
+ return `Team ${leader} is winning. The score is Team 1, ${s1} points, and Team 2, ${s2} points. Team ${leader} leads by ${Math.abs(s1-s2)} points.`;
 }
 function announceScore(next){
  const completedQuestion=qIndex+1;
- if(completedQuestion % 5 === 0){
-  const update=`After ${completedQuestion} questions, ${scoreUpdateText()}`;
-  const box=document.getElementById("scoreReport");
-  box.textContent=update;
-  box.style.display="block";
-  setMessage(update);
-  speak(update,()=>{setTimeout(()=>{box.style.display="none";next();},700);});
- } else {
-  next();
- }
+ if(completedQuestion%5!==0){next();return;}
+ const update=`After ${completedQuestion} questions, ${scoreUpdateText()}`;
+ const box=$("scoreReport");box.textContent=update;box.style.display="block";
+ setMessage(update);
+ speak(update,()=>setTimeout(()=>{box.style.display="none";next();},700));
 }
-function answerYes(){clearInterval(timerInt);stopTimerMusic();correctSound();scores[currentTeam]+=currentPoints;updateScores();document.getElementById("answer").style.display="block";disableJudge();speak(`Correct. The answer is: ${answerText(QUESTIONS[qIndex])}`,()=>announceScore(finishQuestion));}
-function answerNo(){clearInterval(timerInt);stopTimerMusic();wrongSound();clearChoiceSelection();currentTeam=1-turnOwner;currentTimerLength=15;timerMode="steal";document.body.classList.add("steal-mode");state="steal";updateTeams();document.getElementById("judgeControls").style.display="none";document.getElementById("stealControls").style.display="flex";
- setMessage(`Team ${currentTeam+1} may steal for ${currentPoints} points.`);
- speak(`Team ${currentTeam+1}, you have a chance to steal for ${currentPoints} points. Discuss with your team and give one final answer. If correct, you earn the points. If incorrect, no points are awarded. The 15 second timer will begin in 3, 2, 1.`,startTimer);
+function finishQuestion(){
+ nextPhase();
+ qIndex++;$("progress").style.width=(qIndex/QUESTIONS.length*100)+"%";
+ currentTeam=1-turnOwner;
+ const done=qIndex>=QUESTIONS.length;
+ state=done?"final-ready":"ready";updateTeams();
+ clearChoiceSelection();
+ $("qnum").textContent=done?"FINAL ROUND":"QUESTION —";
+ $("qtext").textContent=done?"Regular questions complete. Final Jackpot is ready!":"Spin the wheel to load the next question.";
+ $("value").textContent="—";$("answer").style.display="none";$("choices").innerHTML="";$("typeHint").textContent="";
+ if(done)setTimeout(inPhase(showFinal),500);
+ else{setMessage(`Team ${currentTeam+1} spins next.`);speak(`Team ${currentTeam+1}, it is your turn. Please spin the wheel.`);}
 }
-function stealCorrect(){clearInterval(timerInt);stopTimerMusic();correctSound();scores[currentTeam]+=currentPoints;updateScores();document.getElementById("answer").style.display="block";document.getElementById("stealControls").style.display="none";speak(`The steal is correct. The answer is: ${answerText(QUESTIONS[qIndex])}`,()=>announceScore(finishQuestion));}
-function stealWrong(){clearInterval(timerInt);stopTimerMusic();wrongSound();document.getElementById("answer").style.display="block";document.getElementById("stealControls").style.display="none";speak(`The steal is incorrect, or no steal was attempted. The correct answer is: ${answerText(QUESTIONS[qIndex])}`,()=>announceScore(finishQuestion));}
-function disableJudge(){document.getElementById("yesBtn").disabled=true;document.getElementById("noBtn").disabled=true;}
-function finishQuestion(){clearChoiceSelection();document.body.classList.remove("steal-mode");qIndex++;document.getElementById("progress").style.width=(qIndex/QUESTIONS.length*100)+"%";currentTeam=1-turnOwner;state="ready";updateTeams();document.getElementById("spinBtn").disabled=false;disableJudge();document.getElementById("judgeControls").style.display="flex";document.getElementById("stealControls").style.display="none";
- document.getElementById("qnum").textContent=qIndex>=QUESTIONS.length?"FINAL ROUND":"QUESTION —";document.getElementById("qtext").textContent=qIndex>=QUESTIONS.length?"Regular questions complete. Final Jackpot is ready!":"Spin the wheel to load the next question.";document.getElementById("value").textContent="—";document.getElementById("answer").style.display="none";document.getElementById("choices").innerHTML="";document.getElementById("typeHint").textContent="";
- if(qIndex>=QUESTIONS.length)setTimeout(showFinal,500);else{setMessage(`Team ${currentTeam+1} spins next.`);speak(`Team ${currentTeam+1}, it is your turn. Please spin the wheel.`);}
+function repeatQuestion(){
+ if(state==="final"||state==="final-steal"||state==="final-ready"){readFinal();return;}
+ if(qIndex<QUESTIONS.length&&state!=="ready"&&state!=="spinning"){const q=QUESTIONS[qIndex];speak(`Question ${qIndex+1}. ${questionTypeLabel(q)}. ${q.q} ${spokenOptions(q)}`,null,true);}
 }
-function repeatQuestion(){if(qIndex<QUESTIONS.length){const q=QUESTIONS[qIndex];speak(`Question ${qIndex+1}. ${questionTypeLabel(q)}. ${q.q} `+q.options.map((o,i)=>String.fromCharCode(65+i)+", "+o).join(". "));}}
-function toggleAutoRead(){autoRead=!autoRead;document.getElementById("autoBtn").textContent="Auto-Read: "+(autoRead?"ON":"OFF");if(!autoRead)stopSpeaking();}
-function toggleSounds(){soundsOn=!soundsOn;document.getElementById("soundBtn").textContent="Sounds: "+(soundsOn?"ON":"OFF");}
-function resetGame(){if(!confirm("Reset the entire game?"))return;clearChoiceSelection();stopSpeaking();clearInterval(timerInt);stopTimerMusic();document.body.classList.remove("steal-mode","final-mode");scores=[0,0];currentTeam=0;turnOwner=0;currentPoints=0;qIndex=0;state="ready";timeLeft=30;rotation=0;canvas.style.transform="rotate(0deg)";updateScores();updateTeams();document.getElementById("spinBtn").disabled=false;document.getElementById("qnum").textContent="QUESTION —";document.getElementById("qtext").textContent="Spin the wheel to load a question.";document.getElementById("count").textContent=`Question 0 of ${QUESTIONS.length}`;document.getElementById("value").textContent="—";document.getElementById("timer").textContent="30";document.getElementById("progress").style.width="0";document.getElementById("answer").style.display="none";document.getElementById("choices").innerHTML="";document.getElementById("typeHint").textContent="";disableJudge();setMessage("Team 1 begins the game.");speak("Team 1 begins the game. Please spin the wheel.");}
-function showFinal(){clearChoiceSelection("finalChoices");timerMode="final";currentTimerLength=30;document.body.classList.remove("steal-mode");document.body.classList.add("final-mode");document.getElementById("finalText").textContent=FINAL.q;renderChoices(FINAL,"finalChoices");document.getElementById("finalAnswer").textContent="Correct answer: "+answerText(FINAL);document.getElementById("finalAnswer").style.display="none";document.getElementById("finalModal").style.display="flex";document.getElementById("finalHeading").textContent=`Question ${QUESTIONS.length+1} — Final Jackpot`;speak(`Question ${QUESTIONS.length+1}. Final jackpot. Multiple choice. `+FINAL.q+" "+FINAL.options.map((o,i)=>String.fromCharCode(65+i)+", "+o).join(". ")+" The 15 second timer will begin in 3, 2, 1.",startTimer);}
-function readFinal(){speak(`Question ${QUESTIONS.length+1}. Final jackpot. `+FINAL.q+" "+FINAL.options.map((o,i)=>String.fromCharCode(65+i)+", "+o).join(". "));}
-function showFinalAnswer(){document.getElementById("finalAnswer").style.display="block";speak("The final answer is: "+answerText(FINAL));}
+function toggleAutoRead(){autoRead=!autoRead;$("autoBtn").textContent="Auto-Read: "+(autoRead?"ON":"OFF");if(!autoRead)stopSpeaking();}
+function toggleSounds(){soundsOn=!soundsOn;$("soundBtn").textContent="Sounds: "+(soundsOn?"ON":"OFF");if(!soundsOn)stopTimerMusic();}
+function resetGame(){
+ if(!confirm("Reset the entire game?"))return;
+ nextPhase();silenceSpeech();stopTimer();
+ $("finalModal").style.display="none";$("scoreReport").style.display="none";
+ document.body.classList.remove("steal-mode","final-mode");
+ scores=[0,0];currentTeam=0;turnOwner=0;currentPoints=0;qIndex=0;state="ready";timeLeft=30;
+ clearChoiceSelection();updateScores();updateTeams();showTime();
+ $("wheelResult").textContent="Spin to begin";
+ $("qnum").textContent="QUESTION —";$("qtext").textContent="Spin the wheel to load a question.";
+ $("count").textContent=`Question 0 of ${QUESTIONS.length}`;$("value").textContent="—";
+ $("progress").style.width="0";$("answer").style.display="none";$("choices").innerHTML="";$("typeHint").textContent="";
+ setMessage("Team 1 begins the game.");speak("Team 1 begins the game. Please spin the wheel.");
+}
+
+/* ---------- Final jackpot ---------- */
+function showFinal(){
+ if(state==="done")return;
+ nextPhase();stopTimer();
+ state="final";timerMode="final";currentTimerLength=30;timeLeft=30;showTime();
+ document.body.classList.add("final-mode");
+ clearChoiceSelection("finalChoices");renderChoices(FINAL,"finalChoices");
+ $("finalText").textContent=FINAL.q;
+ $("finalAnswer").textContent="Correct answer: "+answerText(FINAL);$("finalAnswer").style.display="none";
+ $("finalHeading").textContent=`Question ${QUESTIONS.length+1} — Final Jackpot (${FINAL_POINTS} points)`;
+ $("finalModal").style.display="flex";
+ updateTeams();
+ setMessage(`Team ${currentTeam+1}: choose your answer for ${FINAL_POINTS} points, then press Submit.`);
+ speak(`Question ${QUESTIONS.length+1}. Final jackpot for ${FINAL_POINTS} points. Team ${currentTeam+1}, this one is yours. ${questionTypeLabel(FINAL)}. ${FINAL.q} ${spokenOptions(FINAL)}. The ${currentTimerLength} second timer will begin in 3, 2, 1.`,inPhase(startTimer));
+}
+function readFinal(){speak(`Question ${QUESTIONS.length+1}. Final jackpot. ${FINAL.q} ${spokenOptions(FINAL)}`,null,true);}
 function launchConfetti(){
  const colors=["#f4c542","#0b6b4b","#ffffff","#e67e22","#3498db"];
  for(let i=0;i<120;i++){
@@ -340,7 +465,7 @@ function launchConfetti(){
 }
 function announceWinner(){
  let msg;
- if(scores[0]===scores[1]) msg=`The game ends in a tie. Both teams have ${scores[0]} points.`;
+ if(scores[0]===scores[1])msg=`The game ends in a tie. Both teams have ${scores[0]} points.`;
  else{
   const winner=scores[0]>scores[1]?1:2;
   msg=`Team ${winner} wins the game. Final score: Team 1, ${scores[0]} points. Team 2, ${scores[1]} points.`;
@@ -349,8 +474,16 @@ function announceWinner(){
  launchConfetti();
  speak(msg);
 }
-function awardFinal(t){scores[t]+=1000;updateScores();correctSound();speak(`Team ${t+1} earns 1000 points.`,announceWinner);}
-function closeFinal(){document.getElementById("finalModal").style.display="none";clearInterval(timerInt);stopTimerMusic();document.body.classList.remove("final-mode");}
+function closeFinal(){
+ $("finalModal").style.display="none";document.body.classList.remove("final-mode");
+ if(state==="done")return;
+ nextPhase();stopTimer();silenceSpeech();
+ state="final-ready";updateTeams();
+ setMessage("Final Jackpot paused. Press OPEN FINAL JACKPOT to start it again.");
+}
+
+$("count").textContent=`Question 0 of ${QUESTIONS.length}`;
+updateTeams();showTime();
 window.addEventListener("load",()=>setTimeout(()=>speak("Team 1 begins the game. Please spin the wheel."),700));
 </script>
 </body></html>
