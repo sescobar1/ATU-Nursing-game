@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GYN Surgery Spin the Wheel Challenge</title>
+<title>Wheel of Ovary-thing!</title>
 <style>
 :root{--green:#0b6b4b;--gold:#f4c542;--cream:#fffaf0;--dark:#17342a;--red:#b42318}
 *{box-sizing:border-box}
@@ -64,7 +64,7 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 </style>
 </head>
 <body>
-<header><h1>GYN Surgery Spin the Wheel Challenge</h1><p id="matchup">🐶 Jerry's Odd Squad (1, 3, 5…) vs. ☀️ The Even Suns (2, 4, 6…)</p></header>
+<header><h1>🎡 Wheel of Ovary-thing!</h1><p id="matchup">🐶 Jerry's Odd Squad (1, 3, 5…) vs. ☀️ The Even Suns (2, 4, 6…)</p></header>
 <main>
 <div id="turnBanner" class="banner team1">JERRY'S ODD SQUAD — SPIN NOW</div>
 <div id="message" class="message">Set up the game to begin.</div>
@@ -133,7 +133,7 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 
 <div class="modal" id="setupModal" style="display:flex">
 <div class="modalbox setup">
-<h2>GYN Surgery Spin the Wheel Challenge</h2>
+<h2>🎡 Wheel of Ovary-thing!</h2><p style="margin:-6px 0 4px;font-weight:700;color:#4b6358">Spin it, answer it, steal it. A women's health and family nursing review game.</p>
 <div id="resumeBox" class="resume" style="display:none">
 <p id="resumeText"></p>
 <button class="yes" onclick="resumeGame()">▶ RESUME SAVED GAME</button>
@@ -526,7 +526,7 @@ function startNewGame(){
  gameOrder=buildGameOrder(v==="all"?QUESTIONS.length:Math.min(+v,TEST_TOPICS.length));
  applyGame({scores:[0,0],qIndex:0,currentTeam:0,state:"ready"});
  setMessage(`${tn(0)} begins the game.`);
- speak(`Welcome to the GYN Surgery Spin the Wheel Challenge. ${tn(0)} begins. Please spin the wheel.`);
+ speak(`Welcome to Wheel of Ovary-thing! ${tn(0)} begins. Please spin the wheel.`);
 }
 function resumeGame(){
  const g=loadSave();if(!g){showSetup();return;}
