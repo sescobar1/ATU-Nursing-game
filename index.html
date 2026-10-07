@@ -64,14 +64,14 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 </style>
 </head>
 <body>
-<header><h1>GYN Surgery Spin the Wheel Challenge</h1><p id="matchup">🐶 Jerry's Bulldogs (odd numbers) vs. ☀️ Golden Suns (even numbers)</p></header>
+<header><h1>GYN Surgery Spin the Wheel Challenge</h1><p id="matchup">🐶 Odd Wonder Boys (1, 3, 5…) vs. ☀️ Even Golden Suns (2, 4, 6…)</p></header>
 <main>
-<div id="turnBanner" class="banner team1">JERRY'S BULLDOGS — SPIN NOW</div>
+<div id="turnBanner" class="banner team1">ODD WONDER BOYS — SPIN NOW</div>
 <div id="message" class="message">Set up the game to begin.</div>
 
 <section class="grid">
 <div class="card team-card active" id="team1">
-<div class="mascot">🐶</div><h2 id="name1Label">Jerry's Bulldogs</h2><div class="side">Odd numbers: 1, 3, 5, 7…</div><div class="score" id="score1">0</div>
+<div class="mascot">🐶</div><h2 id="name1Label">Odd Wonder Boys</h2><div class="side">Odd numbers: 1, 3, 5, 7…</div><div class="score" id="score1">0</div>
 <button class="secondary" onclick="adjustScore(0,100)">+100</button>
 <button class="secondary" onclick="adjustScore(0,-100)">−100</button>
 </div>
@@ -84,7 +84,7 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 </div>
 
 <div class="card team-card" id="team2">
-<div class="mascot">☀️</div><h2 id="name2Label">Golden Suns</h2><div class="side">Even numbers: 2, 4, 6, 8…</div><div class="score" id="score2">0</div>
+<div class="mascot">☀️</div><h2 id="name2Label">Even Golden Suns</h2><div class="side">Even numbers: 2, 4, 6, 8…</div><div class="score" id="score2">0</div>
 <button class="secondary" onclick="adjustScore(1,100)">+100</button>
 <button class="secondary" onclick="adjustScore(1,-100)">−100</button>
 </div>
@@ -139,8 +139,8 @@ select{padding:10px;border:2px solid var(--green);border-radius:10px;max-width:3
 <button class="yes" onclick="resumeGame()">▶ RESUME SAVED GAME</button>
 <p style="margin:12px 0 0">— or set up a new game below —</p>
 </div>
-<label>🐶 Odd numbers team (1, 3, 5…)<input id="name1" maxlength="20" placeholder="Jerry's Bulldogs"></label>
-<label>☀️ Even numbers team (2, 4, 6…)<input id="name2" maxlength="20" placeholder="Golden Suns"></label>
+<label>🐶 Odd numbers team (1, 3, 5…)<input id="name1" maxlength="20" placeholder="Odd Wonder Boys"></label>
+<label>☀️ Even numbers team (2, 4, 6…)<input id="name2" maxlength="20" placeholder="Even Golden Suns"></label>
 <label>Game length<select id="lengthSelect">
 <option value="15">Quick: 15 questions on 15 different test topics (about 30 minutes)</option>
 <option value="30" selected id="classOption">Class period: 30 questions, one on every test topic (about 1 hour)</option>
@@ -164,7 +164,7 @@ const segments=[
 const FINAL_POINTS=1000;
 const SAVE_KEY="gynWheelGame.v2";
 const TEST_TOPICS=[...new Set(QUESTIONS.map(q=>q.topic).filter(t=>t!=="Course review"))];
-const DEFAULT_NAMES=["Jerry's Bulldogs","Golden Suns"];
+const DEFAULT_NAMES=["Odd Wonder Boys","Even Golden Suns"];
 let teamNames=[...DEFAULT_NAMES],gameOrder=[],gameQs=[],gameStarted=false,finalStarter=0;
 function tn(i){return teamNames[i];}
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -510,7 +510,7 @@ function applyGame(g){
  const finished=qIndex>=gameQs.length;
  state=g.state==="done"?"done":finished?"final-ready":"ready";
  $("name1Label").textContent=tn(0);$("name2Label").textContent=tn(1);
- $("matchup").textContent=`🐶 ${tn(0)} (odd numbers) vs. ☀️ ${tn(1)} (even numbers)`;
+ $("matchup").textContent=`🐶 ${tn(0)} (1, 3, 5…) vs. ☀️ ${tn(1)} (2, 4, 6…)`;
  gameStarted=true;
  clearChoiceSelection();updateScores();updateTeams();showTime();
  $("wheelResult").textContent="Spin to begin";
