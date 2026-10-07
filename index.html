@@ -210,6 +210,7 @@ const segments=[
 {label:"LOSE TURN",type:"lose"},{label:"JACKPOT",type:"points",value:1000}
 ];
 const FINAL_POINTS=1000;
+const STEAL_SECONDS=60;
 const SAVE_KEY="gynWheelGame.v2";
 const TEST_TOPICS=[...new Set(QUESTIONS.map(q=>q.topic).filter(t=>t!=="Course review"))];
 const DEFAULT_NAMES=["Jerry's Odd Squad","The Even Suns"];
@@ -464,7 +465,7 @@ function questionTypeLabel(q){return q.type==="sata"?"SELECT ALL THAT APPLY — 
 /* ---------- Timer ---------- */
 function showTime(){
  [$("timer"),$("finalTimer")].forEach(t=>{
-  t.textContent=timeLeft;t.classList.remove("green","yellow","red");
+  t.textContent=timeLeft>=60?`${Math.floor(timeLeft/60)}:${String(timeLeft%60).padStart(2,"0")}`:timeLeft;t.classList.remove("green","yellow","red");
   t.classList.add(timeLeft>15?"green":timeLeft>5?"yellow":"red");
  });
 }
@@ -518,11 +519,11 @@ function submitAnswer(timeUp=false){
   // Wrong: the other team gets a chance to steal the points.
   wrongSound();stealSound();
   currentTeam=1-team;state=final?"final-steal":"steal";
-  currentTimerLength=15;timerMode="steal";
+  currentTimerLength=STEAL_SECONDS;timerMode="steal";
   clearChoiceSelection(box);updateTeams();
   flash("STEAL!",`${tn(currentTeam)}: ${pts} points up for grabs`,"steal");
   setMessage(`${lead}${tn(team)} missed it. ${tn(currentTeam)}, steal ${pts} points: choose an answer and press Submit.`);
-  speak(`${lead}${pickLine(["Ooh, not quite.","Sorry, that's not it.","Oh, so close!","Nope, not this time."])} ${tn(currentTeam)}, here's your chance to steal ${pts} points! You have 15 seconds. Go!`,inPhase(startTimer));
+  speak(`${lead}${pickLine(["Ooh, not quite.","Sorry, that's not it.","Oh, so close!","Nope, not this time."])} ${tn(currentTeam)}, here's your chance to steal ${pts} points! You have one minute. Go!`,inPhase(startTimer));
  }else{
   // Nobody got it: show the correct answer so the class can learn it.
   wrongSound();flash("NO POINTS","",'bad');
