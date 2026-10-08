@@ -94,6 +94,18 @@ select option{background:#0f1c5e;color:#fff}
 .resume{background:rgba(34,197,139,.12);border:1px solid rgba(34,197,139,.45);border-radius:16px;padding:16px;text-align:center;margin:10px 0 4px}
 .resume p{margin:0 0 12px;font-weight:600}
 .steal-mode{background:radial-gradient(1200px 600px at 50% -10%,#d9480f 0%,transparent 60%),linear-gradient(180deg,#3d0b2c,#12041a)!important}
+.wager{text-align:left}
+.wagerhow{font-size:18px;line-height:1.45;margin:4px 0 14px}
+.wagerrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid var(--line);margin-bottom:10px}
+.wagerrow .wname{font-weight:800;font-size:20px;flex:1 1 220px}
+.wagerrow input,.rwager input{width:150px;font-size:24px;padding:8px 12px;border-radius:12px;border:2px solid rgba(255,255,255,.45);background:#fff;color:#111;font-weight:700}
+.wagerrow .wmax{color:var(--muted);font-weight:600}
+.wagerrow .wstat{font-weight:800;min-width:170px}
+.wagerrow .wstat.ok{color:#5cf0b6}.wagerrow .wstat.bad{color:#ff8a8a}
+.rwager{text-align:center;margin:10px 0}
+.rwager label{display:block;font-weight:800;font-size:20px;margin-bottom:10px}
+.rwager .controls{justify-content:center}
+#rWagerMsg{color:#ff8a8a;font-weight:700;min-height:1.3em}
 .final-mode{background:radial-gradient(1200px 700px at 50% -10%,#b7791f 0%,transparent 60%),linear-gradient(180deg,#1b1145,#05020f)!important}
 .flash{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center;padding:16px;font-family:"Bebas Neue",Impact,sans-serif;font-size:clamp(64px,14vw,170px);letter-spacing:.04em;line-height:.95;opacity:0;background:radial-gradient(ellipse at center,rgba(3,6,30,.78) 0,rgba(3,6,30,.45) 35%,transparent 65%)}
 .flash.show{animation:flashPop 1.8s ease forwards}
@@ -274,6 +286,7 @@ select option{background:#0f1c5e;color:#fff}
 <div class="question"><div><div class="qnum" id="rQnum"></div><div id="rQtext">Waiting for the game to start…</div></div></div>
 <div id="rHint" class="typehint"></div>
 <div id="rChoices" class="choices"></div>
+<div id="rWager" class="rwager" hidden><label for="rWagerIn">Your wager: 0 to <span id="rWMax"></span> points</label><input id="rWagerIn" type="number" inputmode="numeric" min="0" step="1" autocomplete="off"><div class="controls"><button class="yes" id="rWagerBtn" type="button">🔒 LOCK IN WAGER</button></div><p id="rWagerMsg"></p></div>
 <div class="controls"><button class="primary" id="rSpin" hidden>SPIN THE WHEEL</button><button class="yes" id="rSubmit" hidden>✓ SUBMIT ANSWER</button></div>
 <p id="rWait" class="remote-wait"></p>
 <p class="remote-leave"><button class="secondary" type="button" onclick="askLeave()">Leave game</button></p>
@@ -305,13 +318,23 @@ select option{background:#0f1c5e;color:#fff}
 
 <div class="modal" id="finalModal">
 <div class="modalbox">
-<div class="meta"><h2 id="finalHeading">Final Jackpot</h2><span class="timer" id="finalTimer">1:30</span></div>
+<div class="meta"><h2 id="finalHeading">Final Round</h2><span class="timer" id="finalTimer">1:30</span></div>
 <div id="finalMessage" class="message"></div>
+<div id="wagerPanel" class="wager" hidden>
+<p class="wagerhow">Each team gets its <b>own</b> hard final question. <b>Before</b> seeing it, each team wagers from 0 up to its score (teams with less than 500 may wager up to 500). Right answer: win the wager. Wrong answer: lose it (scores never go below 0).</p>
+<div class="wagerrow"><span class="wname" id="wName0"></span><input id="wager0" type="password" inputmode="numeric" autocomplete="off" placeholder="wager" oninput="typeWager(0)"><span class="wmax" id="wMax0"></span><span class="wstat" id="wStat0"></span></div>
+<div class="wagerrow"><span class="wname" id="wName1"></span><input id="wager1" type="password" inputmode="numeric" autocomplete="off" placeholder="wager" oninput="typeWager(1)"><span class="wmax" id="wMax1"></span><span class="wstat" id="wStat1"></span></div>
+<p class="hint" id="wagerHint"></p>
+</div>
+<div id="finalAsk">
 <p id="finalText"></p><div id="finalChoices" class="choices"></div>
 <div class="answer" id="finalAnswer"></div>
+</div>
 <div class="controls">
+<button class="yes" id="wagerGo" onclick="startFinalQuestions()" disabled>🔒 WAGERS ARE IN — START</button>
 <button class="yes" id="finalSubmitBtn" onclick="submitAnswer()" disabled>✓ SUBMIT ANSWER</button>
-<button class="secondary" onclick="readFinal()">Read Final Question</button>
+<button class="primary" id="finalNextBtn" onclick="nextFinal()">▶ NEXT FINAL QUESTION</button>
+<button class="secondary" onclick="readFinal()">Read Aloud Again</button>
 <button class="secondary" id="finalPauseBtn" onclick="togglePause()" disabled>⏸ Pause</button>
 <button class="secondary" onclick="closeFinal()">Close</button>
 </div>
@@ -363,7 +386,7 @@ select option{background:#0f1c5e;color:#fff}
 <option value="30" id="topicsOption">Every test topic: 30 questions (about 1½ hours)</option>
 <option value="all" id="allOption">Full review: all questions</option>
 </select></label>
-<p class="hint">Each question comes from a different test topic, and a new mix is drawn every game. Every game ends with a 1000-point Final Jackpot. Times are estimates; teams that answer quickly finish sooner. Progress is saved automatically if the page is refreshed.</p>
+<p class="hint">Each question comes from a different test topic, and a new mix is drawn every game. Every game ends with a Final Round: each team wagers points, then answers its own hard final question. Times are estimates; teams that answer quickly finish sooner. Progress is saved automatically if the page is refreshed.</p>
 <div class="voicecheck"><button class="secondary" type="button" onclick="testVoice()">🔊 Test Voice</button><span id="voiceTest">Check the sound before class.</span></div>
 <div class="controls"><button class="primary" onclick="startNewGame()">START GAME</button></div>
 <button type="button" class="linkbtn" onclick="pickRole()">← Back</button>
@@ -376,17 +399,18 @@ const QUESTIONS=[{"topic":"Contraception: smoker over 35","type":"sata","q":"A 3
 // Jackpot questions: very hard, double points. Each team gets one around halfway, on different turns.
 const JACKPOTS=[{"type":"sata","level":5,"jackpot":true,"q":"On day 2 after an abdominal hysterectomy, a client suddenly reports shortness of breath and chest pain. Her heart rate is 118, respiratory rate 28, and oxygen saturation 89%. Which actions should the nurse take right away? Select all that apply.","options":["Raise the head of the bed","Apply oxygen","Walk her in the hallway to improve circulation","Call the rapid response team or provider","Massage her calves to relieve discomfort","Stay with her and monitor vital signs"],"correct":[0,1,3,5]},{"type":"mc","level":5,"jackpot":true,"q":"A client taking clomiphene (Clomid) reports sudden abdominal bloating, a 4-pound weight gain in 2 days, and urinating less than usual. What should the nurse suspect?","options":["A normal, expected side effect","A urinary tract infection","Ovarian hyperstimulation syndrome","Early pregnancy symptoms"],"correct":[2]},{"type":"sata","level":5,"jackpot":true,"q":"A 37-year-old who smokes, has a history of a blood clot (DVT), and gets migraines with aura asks about birth control. Which methods are safe options for her? Select all that apply.","options":["Combined oral contraceptive pill","Copper IUD (Paragard)","Transdermal contraceptive patch","Hormonal IUD (levonorgestrel)","Combined vaginal ring","Condoms"],"correct":[1,3,5]},{"type":"mc","level":5,"jackpot":true,"q":"Which client should the nurse see first?","options":["A client 1 day after a mastectomy asking when she can start arm exercises","A client 1 hour after a cesarean birth whose pad is soaked in 15 minutes and whose heart rate is 120","A client with PCOS asking how metformin will help her","A client after laparoscopic surgery rating her shoulder pain 5 out of 10"],"correct":[1]},{"type":"sata","level":5,"jackpot":true,"q":"A 60-year-old with osteoporosis is starting alendronate (Fosamax). Which statements show she understands the teaching? Select all that apply.","options":["\"I'll take it first thing in the morning with a full glass of plain water.\"","\"I'll take it with my calcium and a glass of orange juice.\"","\"I'll stay sitting or standing for at least 30 minutes afterward.\"","\"I'll wait 30 minutes before eating or taking other medicines.\"","\"If I get heartburn, I'll lie down until it passes.\"","\"I'll keep walking for weight-bearing exercise.\""],"correct":[0,2,3,5]},{"type":"mc","level":5,"jackpot":true,"q":"A client with pelvic inflammatory disease is going home on antibiotics. Which statement shows she needs more teaching?","options":["\"My partner needs to be checked and treated too.\"","\"I'll avoid sex until we've both finished treatment.\"","\"I'll call if I get a fever or the pain gets worse.\"","\"I can stop the antibiotics once the pain goes away.\""],"correct":[3]},{"type":"sata","level":5,"jackpot":true,"q":"One hour after a cesarean birth, which findings need the nurse's immediate action? Select all that apply.","options":["A pad soaked through in 15 minutes","Pain rated 4 out of 10 after medication","Urine output of 20 mL per hour","A boggy fundus that stays soft after massage","Heart rate of 88","Temperature of 99.1°F"],"correct":[0,2,3]},{"type":"mc","level":5,"jackpot":true,"q":"A 55-year-old with an intact uterus takes estrogen plus progestin. She calls reporting sudden pain, warmth, and swelling in one calf. What should the nurse tell her?","options":["Stop the hormone therapy and get evaluated right away","Massage the calf to ease the cramp","Walk more to improve circulation","Keep taking it and mention the pain at her next visit"],"correct":[0]}];
 const FINALS=[{"type":"sata","q":"A 38-year-old client smokes a pack of cigarettes a day, has a BMI of 31, and wants reversible birth control for the next 5 years. Which methods are appropriate for her? Select all that apply.","options":["Copper IUD (Paragard)","Hormonal IUD (levonorgestrel)","Implantable rod (Nexplanon)","Combined oral contraceptive pill","Transdermal contraceptive patch","Combined vaginal ring","Male condoms"],"correct":[0,1,2,6]},{"type":"sata","q":"A 24-year-old has irregular periods, acne, excess facial hair, and a BMI of 33. Which findings and teaching points fit polycystic ovary syndrome (PCOS)? Select all that apply.","options":["Elevated androgen levels","Insulin resistance","Increased risk of type 2 diabetes","Weight loss can help restore ovulation","Anovulation (not ovulating regularly)","Low androgen levels","Lower risk of endometrial cancer"],"correct":[0,1,2,3,4]},{"type":"sata","q":"A client is going home 3 days after a cesarean birth. Which discharge instructions are correct? Select all that apply.","options":["Shower instead of taking tub baths until the provider says it's okay","Warm tub baths will help the incision heal","Report redness, warmth, or drainage at the incision","Walk a little more each day","Drive as soon as you get home","Use tampons right away for bleeding"],"correct":[0,2,3]},{"type":"sata","q":"A 29-year-old is being evaluated for endometriosis. Which statements about endometriosis are correct? Select all that apply.","options":["Laparoscopy is the gold standard for diagnosis","Painful periods that NSAIDs do not relieve are common","Pain with intercourse can occur","Infertility is a possible complication","Hormonal birth control may be used to reduce symptoms","A Pap smear confirms the diagnosis","Symptoms usually get worse after menopause"],"correct":[0,1,2,3,4]},{"type":"sata","q":"A 51-year-old with an intact uterus is starting hormone therapy for hot flashes. Which teaching points are correct? Select all that apply.","options":["A progestin is added to protect the uterine lining","Report any unexpected vaginal bleeding","Hot flashes and night sweats are common menopause symptoms","Take calcium with vitamin D for bone health","Estrogen alone is safest because she has a uterus","Hormone therapy will increase her fertility"],"correct":[0,1,2,3]},{"type":"sata","q":"Which nursing actions show culturally appropriate care? Select all that apply.","options":["Asking the provider for a beef-free medication for a Hindu client","Performing an emergency baptism when Catholic parents ask and no priest is available","Including the grandmother as decision-maker when she is the legal guardian of an American Indian child","Giving antibiotics to a sleeping Christian Scientist who refused them","Throwing away a family's herbal remedy without asking what it is","Teaching only the eldest male relative, no matter who manages the family's health"],"correct":[0,1,2]},{"type":"sata","q":"A 58-year-old with urge incontinence is starting oxybutynin (Ditropan). Which teaching points are correct? Select all that apply.","options":["Cut back on caffeine, soda, and artificial sweeteners","Use a timed voiding schedule","Keep doing pelvic floor (Kegel) exercises","Dry mouth and constipation are common side effects","Limit fluids to less than 1 liter a day","Hold urine as long as possible every time","Stop the medication if dry mouth occurs"],"correct":[0,1,2,3]}];
-let FINAL=FINALS[0];
+let FINAL=FINALS[0],FINAL_PAIR=[FINALS[0],FINALS[1]];
 // Two spaces for each difficulty level; the wheel lands on the level of the question that comes next.
 const segments=[1,4,2,5,3,1,4,2,5,3].map(l=>({label:String(l*100),type:"points",value:l*100,level:l}));
-const FINAL_POINTS=1000;
-const QUESTION_SECONDS=90; // first answer, including the Final Jackpot
+// Final Round: each team wagers, then answers its own hard question (no steal).
+const WAGER_FLOOR=500; // teams with fewer points may still wager up to this much
+const QUESTION_SECONDS=90; // first answer, including each final question
 const STEAL_SECONDS=45;
 function spokenTime(sec){const m=Math.floor(sec/60),r=sec%60;if(!m)return `${r} seconds`;const mins=m===1?"one minute":`${m} minutes`;return r===30?(m===1?"a minute and a half":`${m} and a half minutes`):r?`${mins} and ${r} seconds`:mins;}
 const SAVE_KEY="gynWheelGame.v3";
 const TEST_TOPICS=[...new Set(QUESTIONS.map(q=>q.topic).filter(t=>t!=="Course review"))];
 const DEFAULT_NAMES=["Jerry's Odd Squad","The Even Suns"];
-let startTeam=0,teamNames=[...DEFAULT_NAMES],gameOrder=[],gameQs=[],gameStarted=false,finalStarter=0,finalIdx=0,shuffleSeed=1,paused=false,timerExpire=null;
+let startTeam=0,teamNames=[...DEFAULT_NAMES],gameOrder=[],gameQs=[],gameStarted=false,finalStarter=0,finalIdx=0,finalIdx2=1,shuffleSeed=1,paused=false,timerExpire=null;
 // Seeded random numbers, so a resumed game shows answers in the same shuffled order.
 function seededRandom(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 // Shuffle answer choices; True/False and naturally ordered lists (ages, stages, intervals) stay in order.
@@ -441,7 +465,9 @@ function pairByDifficulty(order){
  return shuffle(pairs).map(pr=>{if(pr.length===2&&lv(pr[0])!==lv(pr[1])){const hi=lv(pr[0])>lv(pr[1])?0:1;if((first<=second)!==(hi===0))pr.reverse();}
   first+=lv(pr[0]);if(pr[1]!==undefined)second+=lv(pr[1]);return pr;}).flat();
 }
-// state: ready | spinning | question | steal | reveal | advancing | final-ready | final | final-steal | done
+// state: ready | spinning | question | steal | reveal | advancing | final-ready | wager | final | final-reveal | done
+let wagers=[null,null],wagerLocked=[false,false],wagersSet=false,finalBegun=false,finalOrder=[0,1],finalStep=0;
+const wagerMax=t=>Math.max(scores[t],WAGER_FLOOR);
 let scores=[0,0],currentTeam=0,turnOwner=0,currentPoints=0,qIndex=0,state="ready";
 let timerInt=null,timeLeft=QUESTION_SECONDS,currentTimerLength=QUESTION_SECONDS,rotation=0,autoRead=true,soundsOn=true,selectedVoice=null,userPickedVoice=false,musicNodes=[],timerMode="question";
 let selectedAnswers=[];
@@ -625,15 +651,17 @@ function startTimerMusic(){
 }
 
 /* ---------- Screen state ---------- */
-const isFinalState=()=>state==="final"||state==="final-steal";
+const isFinalState=()=>state==="final";
 const isAnswering=()=>state==="question"||state==="steal"||isFinalState();
 function setMessage(t){$("message").textContent=t;$("finalMessage").textContent=t;}
 function bannerText(){
  const t=`${tn(currentTeam).toUpperCase()} — `;
  switch(state){
-  case "steal":case "final-steal":return t+"STEAL CHANCE";
-  case "question":case "final":return t+"ANSWER NOW";
-  case "final-ready":return "FINAL JACKPOT";
+  case "steal":return t+"STEAL CHANCE";
+  case "question":return t+"ANSWER NOW";
+  case "final":return t+"FINAL QUESTION";
+  case "final-ready":case "final-reveal":return "FINAL ROUND";
+  case "wager":return "FINAL ROUND — PLACE YOUR WAGERS";
   case "lobby":return "WAITING FOR TEAMS TO JOIN";
   case "done":return "GAME OVER";
   case "reveal":case "advancing":return "ROUND OVER";
@@ -645,14 +673,15 @@ function updateTeams(){
  const b=$("turnBanner");b.textContent=bannerText();b.className="banner "+(currentTeam===0?"team1":"team2");
  const spin=$("spinBtn");
  spin.disabled=!(state==="ready"||state==="final-ready");
- spin.textContent=state==="final-ready"?"OPEN FINAL JACKPOT":state==="done"?"GAME OVER":"SPIN THE WHEEL";
+ spin.textContent=state==="final-ready"?"OPEN FINAL ROUND":state==="done"?"GAME OVER":"SPIN THE WHEEL";
  $("submitBtn").style.display=(state==="question"||state==="steal")?"inline-block":"none";
  $("nextBtn").style.display=state==="reveal"?"inline-block":"none";
- $("finalSubmitBtn").disabled=!isFinalState();
+ $("finalSubmitBtn").disabled=!isFinalState();$("finalSubmitBtn").style.display=state==="wager"||state==="final-reveal"?"none":"";
+ $("finalNextBtn").style.display=state==="final-reveal"?"":"none";$("wagerGo").style.display=state==="wager"?"":"none";
  $("pauseBtn").disabled=$("finalPauseBtn").disabled=!canPause()&&!paused;
  $("skipBtn").disabled=!(state==="question"||state==="steal");
  $("pauseBtn").textContent=$("finalPauseBtn").textContent=paused?"▶ Resume":"⏸ Pause";
- document.body.classList.toggle("steal-mode",state==="steal"||state==="final-steal");
+ document.body.classList.toggle("steal-mode",state==="steal");
  saveGame();
 }
 function updateScores(){$("score1").textContent=scores[0];$("score2").textContent=scores[1];saveGame();}
@@ -787,27 +816,26 @@ function loadQuestion(){
 }
 function submitAnswer(timeUp=false){
  if(!isAnswering())return;
- const final=isFinalState(),stealing=state==="steal"||state==="final-steal";
- const q=final?FINAL:gameQs[qIndex],box=final?"finalChoices":"choices",pts=final?FINAL_POINTS:currentPoints;
+ const final=isFinalState(),stealing=state==="steal";
+ const q=final?FINAL:gameQs[qIndex],box=final?"finalChoices":"choices",pts=currentPoints;
  if(!timeUp&&selectedAnswers.length===0){setMessage(`${tn(currentTeam)}: click an answer before pressing Submit.`);return;}
  nextPhase();stopTimer();
  const lead=timeUp?(selectedAnswers.length?"Time's up! ":"Time's up, and no answer was picked. "):"";
  const team=currentTeam;
+ if(final){finishFinal(team,lead);return;}
  if(isCorrect(q,selectedAnswers)){
   // Correct: celebrate and move on. No answer review.
   scores[team]+=pts;updateScores();revealChoices(q,box);
-  if(final){jackpotSound();flash("JACKPOT!",`+${pts} ${tn(team)}`,"gold");}
-  else{correctSound();flash(stealing?"STOLEN!":"CORRECT!",`+${pts} ${tn(team)}`,"good");}
+  correctSound();flash(stealing?"STOLEN!":"CORRECT!",`+${pts} ${tn(team)}`,"good");
   const msg=`${lead}${pickLine(["That's right!","You got it!","Correct!","Nailed it!","Nice work!","Yes!"])} ${tn(team)} ${stealing?"steals":"earns"} ${pts} points.`;
   setMessage(msg);
-  if(final){state="done";updateTeams();speak(msg,inPhase(announceWinner));return;}
   state="advancing";updateTeams();
   const go=inPhase(()=>announceScore(inPhase(finishQuestion)));
   speak(msg,inPhase(()=>setTimeout(go,1200)));
  }else if(!stealing){
   // Wrong: the other team gets a chance to steal the points.
   wrongSound();stealSound();
-  currentTeam=1-team;state=final?"final-steal":"steal";
+  currentTeam=1-team;state="steal";
   currentTimerLength=STEAL_SECONDS;timerMode="steal";
   clearChoiceSelection(box);updateTeams();
   flash("STEAL!",`${tn(currentTeam)}: ${pts} points up for grabs`,"steal");
@@ -853,13 +881,13 @@ function finishQuestion(){
  state=done?"final-ready":"ready";updateTeams();
  clearChoiceSelection();
  $("qnum").textContent=done?"FINAL ROUND":"QUESTION —";
- $("qtext").textContent=done?"Regular questions complete. Final Jackpot is ready!":"Spin the wheel to load the next question.";
+ $("qtext").textContent=done?"Regular questions complete. The Final Round is ready!":"Spin the wheel to load the next question.";
  $("value").textContent="—";$("answer").style.display="none";$("choices").innerHTML="";$("typeHint").textContent="";
  if(done)setTimeout(inPhase(showFinal),500);
  else{setMessage(`${tn(currentTeam)} spins next.`);speak(`${tn(currentTeam)}, you're up. Spin the wheel!`);}
 }
 function repeatQuestion(){
- if(state==="final"||state==="final-steal"||state==="final-ready"){readFinal();return;}
+ if(["final","final-reveal","wager","final-ready"].includes(state)){readFinal();return;}
  if(qIndex<gameQs.length&&state!=="ready"&&state!=="spinning"){speak(spokenQuestion(gameQs[qIndex]),null,true);}
 }
 function syncToggleLabels(){$("autoBtn").textContent="Auto-Read: "+(autoRead?"ON":"OFF");$("soundBtn").textContent="Sounds: "+(soundsOn?"ON":"OFF");}
@@ -881,7 +909,7 @@ function saveGame(){
  else if(state==="spinning"||state==="question"||state==="steal")team=turnOwner;
  else if(isFinalState())team=finalStarter;
  const st=state==="done"?"done":q>=gameQs.length?"final-ready":"ready";
- try{localStorage.setItem(SAVE_KEY,JSON.stringify({names:teamNames,order:gameOrder,scores,qIndex:q,currentTeam:team,state:st,autoRead,soundsOn,seed:shuffleSeed,finalIdx,liveCode:mode==="host"?liveCode:"",owners:mode==="host"?teamOwner:null,startTeam}));}catch(e){}
+ try{localStorage.setItem(SAVE_KEY,JSON.stringify({names:teamNames,order:gameOrder,scores,qIndex:q,currentTeam:team,state:st,autoRead,soundsOn,seed:shuffleSeed,finalIdx,liveCode:mode==="host"?liveCode:"",owners:mode==="host"?teamOwner:null,startTeam,finalIdx2,wagers,wagerLocked,wagersSet,finalBegun,finalOrder,finalStep}));}catch(e){}
 }
 function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 function loadSave(){
@@ -907,7 +935,14 @@ function applyGame(g){
  nextPhase();silenceSpeech();stopTimer();
  const rnd=seededRandom(shuffleSeed);
  gameQs=gameOrder.map(i=>shuffleChoices(qById(i),rnd));
- FINAL=shuffleChoices(FINALS[finalIdx]||FINALS[0],rnd);
+ FINAL_PAIR=[shuffleChoices(FINALS[finalIdx]||FINALS[0],rnd),shuffleChoices(FINALS[finalIdx2]||FINALS[1],rnd)];
+ const okW=w=>Number.isInteger(w)&&w>=0?w:null;
+ wagers=Array.isArray(g.wagers)&&g.wagers.length===2?g.wagers.map(okW):[null,null];
+ wagerLocked=Array.isArray(g.wagerLocked)&&g.wagerLocked.length===2?g.wagerLocked.map((x,t)=>x===true&&wagers[t]!==null):[false,false];
+ wagersSet=g.wagersSet===true&&wagers.every(w=>w!==null);finalBegun=g.finalBegun===true;
+ finalOrder=Array.isArray(g.finalOrder)&&(g.finalOrder.join()==="0,1"||g.finalOrder.join()==="1,0")?[...g.finalOrder]:[0,1];
+ finalStep=g.finalStep===1&&wagersSet?1:0;
+ FINAL=FINAL_PAIR[finalStep];
  paused=false;$("pauseOverlay").style.display="none";
  $("setupModal").style.display="none";$("finalModal").style.display="none";$("lobby").style.display="none";$("scoreReport").style.display="none";
  document.body.classList.remove("steal-mode","final-mode");
@@ -920,7 +955,7 @@ function applyGame(g){
  clearChoiceSelection();updateScores();updateTeams();showTime();
  $("wheelResult").textContent="Spin to begin";
  $("qnum").textContent=finished?"FINAL ROUND":"QUESTION —";
- $("qtext").textContent=state==="done"?"Game over. Press Reset Game to play again.":finished?"Regular questions complete. Final Jackpot is ready!":"Spin the wheel to load a question.";
+ $("qtext").textContent=state==="done"?"Game over. Press Reset Game to play again.":finished?"Regular questions complete. The Final Round is ready!":"Spin the wheel to load a question.";
  $("count").textContent=`Question ${qIndex} of ${gameQs.length}`;$("value").textContent="—";
  $("progress").style.width=(qIndex/gameQs.length*100)+"%";
  $("answer").style.display="none";$("choices").innerHTML="";$("typeHint").textContent="";
@@ -931,9 +966,11 @@ function startNewGame(){
  const v=$("lengthSelect").value;
  gameOrder=buildGameOrder(v==="all"?QUESTIONS.length:Math.min(+v,TEST_TOPICS.length));
  shuffleSeed=Math.floor(Math.random()*2147483647)+1;
- let lastFinal=-1;try{lastFinal=+localStorage.getItem("gynWheelLastFinal");}catch(e){}
- do{finalIdx=Math.floor(Math.random()*FINALS.length);}while(FINALS.length>1&&finalIdx===lastFinal);
- try{localStorage.setItem("gynWheelLastFinal",finalIdx);}catch(e){}
+ // Two different final questions, neither one used in the previous game.
+ let lastFinals=[];try{lastFinals=JSON.parse(localStorage.getItem("gynWheelLastFinals"))||[];}catch(e){}
+ let pool=[...FINALS.keys()].filter(i=>!lastFinals.includes(i));if(pool.length<2)pool=[...FINALS.keys()];
+ [finalIdx,finalIdx2]=shuffle(pool);
+ try{localStorage.setItem("gynWheelLastFinals",JSON.stringify([finalIdx,finalIdx2]));}catch(e){}
  startTeam=Math.random()<.5?0:1;
  applyGame({scores:[0,0],qIndex:0,currentTeam:startTeam,state:"ready"});
  if(document.querySelector('input[name="mode"]:checked').value==="host"){teamOwner=[null,null];blockedSeen=new Set();startHostLink(newCode());openLobby(false);return;}
@@ -946,10 +983,11 @@ function resumeGame(){
  const g=loadSave();if(!g){showSetup();return;}
  teamNames=g.names.map((n,i)=>String(n).slice(0,20)||DEFAULT_NAMES[i]);gameOrder=g.order;
  shuffleSeed=Number.isInteger(g.seed)?g.seed:1;startTeam=g.startTeam===1?1:0;finalIdx=Number.isInteger(g.finalIdx)&&g.finalIdx>=0&&g.finalIdx<FINALS.length?g.finalIdx:0;
+ finalIdx2=Number.isInteger(g.finalIdx2)&&g.finalIdx2>=0&&g.finalIdx2<FINALS.length&&g.finalIdx2!==finalIdx?g.finalIdx2:(finalIdx+1)%FINALS.length;
  autoRead=g.autoRead!==false;soundsOn=g.soundsOn!==false;syncToggleLabels();
  applyGame(g);
  if(typeof g.liveCode==="string"&&/^[A-Z0-9]{4}$/.test(g.liveCode)){teamOwner=Array.isArray(g.owners)&&g.owners.length===2?g.owners.map(o=>typeof o==="string"?o:null):[null,null];blockedSeen=new Set();startHostLink(g.liveCode);openLobby(true);return;}
- const msg=state==="final-ready"?`Welcome back! ${tn(currentTeam)} is up for the Final Jackpot. Press OPEN FINAL JACKPOT.`:`Welcome back! ${scoreUpdateText()} ${tn(currentTeam)}, spin the wheel!`;
+ const msg=state==="final-ready"?`Welcome back! ${scoreUpdateText()} The Final Round is next. Press OPEN FINAL ROUND.`:`Welcome back! ${scoreUpdateText()} ${tn(currentTeam)}, spin the wheel!`;
  setMessage(msg);speak(msg);
 }
 
@@ -1023,7 +1061,7 @@ function beginGame(force){
  enterFullscreen();
  if(!bothJoined()&&!(force&&confirm("Start without waiting for both teams to join?")))return;
  $("lobby").style.display="none";state=lobbyNext||"ready";lobbyNext=null;updateTeams();
- const msg=state==="final-ready"?`${tn(currentTeam)} is up for the Final Jackpot. Press OPEN FINAL JACKPOT.`:lobbyResume?`Let's pick up where we left off! ${scoreUpdateText()} ${tn(currentTeam)}, spin the wheel!`:`Let the battle begin! The coin flip says ${tn(currentTeam)} goes first. Spin the wheel!`;
+ const msg=state==="final-ready"?`${scoreUpdateText()} The Final Round is next. Press OPEN FINAL ROUND.`:lobbyResume?`Let's pick up where we left off! ${scoreUpdateText()} ${tn(currentTeam)}, spin the wheel!`:`Let the battle begin! The coin flip says ${tn(currentTeam)} goes first. Spin the wheel!`;
  setMessage(msg);speak(msg);
 }
 function renderPresence(){
@@ -1077,6 +1115,7 @@ function onRemoteMessage(m){
  if(m.kind==="hello"&&leftTeams.has(team)){leftTeams.delete(team);hostAlert(`✓ ${teamLabel(team)} signed back in.`,"ok");if(paused&&pauseReason==="left"&&!leftTeams.size){togglePause();speak(`${tn(team)} is back. Let's keep going!`);}}
  if(m.kind==="hello"){remoteSeen[team]=Date.now();if(typeof m.away==="boolean"&&m.away!==teamAway[team]){teamAway[team]=m.away;}renderPresence();syncRemotes(true);return;}
  if(m.kind==="away"){remoteSeen[team]=Date.now();handleAway(team,m);return;}
+ if(m.kind==="act"&&m.act==="wager"){if(!paused&&state==="wager"&&!wagerLocked[team])setWager(team,m.amount,true);return;}
  if(m.kind!=="act"||paused||team!==currentTeam)return;
  if(m.act==="spin"&&state==="ready")spinWheel();
  else if(m.act==="select"&&isAnswering()){const fin=isFinalState(),q=fin?FINAL:gameQs[qIndex];if(Number.isInteger(m.i)&&m.i>=0&&m.i<q.options.length)selectChoice(m.i,fin?"finalChoices":"choices",q);}
@@ -1087,7 +1126,8 @@ function hostSnapshot(){
  const t=$(finalOpen?"finalTimer":"timer");
  return {kind:"state",hid:HOST_SESSION,seq:++snapSeq,state,team:currentTeam,names:teamNames,scores,paused,
   banner:$("turnBanner").textContent,message:$("message").textContent,
-  count:$("count").textContent,value:finalOpen?`${FINAL_POINTS} points`:$("value").textContent,
+  count:$("count").textContent,value:finalOpen?"Final Round":$("value").textContent,
+  wager:state==="wager"?{max:[wagerMax(0),wagerMax(1)],locked:[...wagerLocked]}:null,
   timer:t.textContent,timerClass:t.className.replace("timer","").trim(),
   qnum:finalOpen?$("finalHeading").textContent:$("qnum").textContent,
   qtext:finalOpen?$("finalText").textContent:$("qtext").textContent,
@@ -1104,7 +1144,7 @@ function syncRemotes(now){
 }
 
 /* ----- team computer ----- */
-let joinTeam=0;
+let joinTeam=0,myWager=null;
 function setupMode(){$("hostHint").hidden=document.querySelector('input[name="mode"]:checked').value!=="host";}
 // Sign-in: Team 1 and Team 2 join with the game code; the instructor sets up and runs the game.
 // Instructor passcode: checked against a scrambled value so it isn't readable in the page code.
@@ -1143,6 +1183,9 @@ async function startRemote(code,team){
  startFocusWatch();
  $("rSpin").onclick=()=>sendAct({act:"spin"});
  $("rSubmit").onclick=()=>sendAct({act:"submit"});
+ $("rWagerBtn").onclick=()=>{const max=remoteSnap&&remoteSnap.wager?remoteSnap.wager.max[myTeam]:0,v=$("rWagerIn").value.trim(),n=Number(v);
+  if(v===""||!Number.isInteger(n)||n<0||n>max){$("rWagerMsg").textContent=`Enter a whole number from 0 to ${max}.`;return;}
+  $("rWagerMsg").textContent="";myWager=n;sendAct({act:"wager",amount:n});$("rWagerIn").value="";};
 }
 // Watch for the team leaving the game (tab switch, another app, clicking outside the window, leaving full screen).
 let awayState=false,awaySince=0,focusWatchOn=false;
@@ -1186,7 +1229,7 @@ function onHostMessage(m){
  m.at=Date.now();remoteSnap=m;renderRemote(m);
 }
 function renderRemote(m){
- const mine=m.team===myTeam,answering=["question","steal","final","final-steal"].includes(m.state)&&!m.paused,canAnswer=mine&&answering&&!m.locked;
+ const mine=m.team===myTeam,answering=["question","steal","final"].includes(m.state)&&!m.paused,canAnswer=mine&&answering&&!m.locked;
  if(m.names){teamNames=m.names;$("rName0").textContent="🐶 "+m.names[0];$("rName1").textContent="☀️ "+m.names[1];$("rTeam").textContent=`${myTeam?"☀️ Team 2":"🐶 Team 1"} · ${m.names[myTeam]} · Game ${liveCode}`;}
  $("rScore0").textContent=m.scores[0];$("rScore1").textContent=m.scores[1];
  const b=$("rBanner");b.textContent=m.paused?"PAUSED":m.banner;b.className="banner "+(m.team===0?"team1":"team2");
@@ -1201,14 +1244,20 @@ function renderRemote(m){
    el.onclick=go;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go();}};box.appendChild(el);});
  }
  [...box.children].forEach((el,i)=>{const c=m.choices[i];el.classList.toggle("selected",c.s);el.classList.toggle("correct",c.c);el.classList.toggle("wrong",c.w);});
+ const wg=m.state==="wager"&&m.wager&&!m.paused,myLocked=!!(m.wager&&m.wager.locked[myTeam]);
+ $("rWager").hidden=!(wg&&!myLocked);
+ if(wg){$("rWMax").textContent=m.wager.max[myTeam];$("rWagerIn").max=m.wager.max[myTeam];}
+ if(m.state!=="wager")myWager=null;
  $("rSpin").hidden=!(mine&&m.state==="ready"&&!m.paused);
  $("rSubmit").hidden=!canAnswer;
  let wait="";
  if(m.paused)wait=m.pauseMsg||"The game is paused.";
  else if(m.state==="ready")wait=mine?"Your turn! Press SPIN THE WHEEL.":`Waiting for ${m.names[m.team]} to spin…`;
  else if(m.state==="spinning")wait="The wheel is spinning…";
+ else if(m.state==="final")wait=mine?"This final question is yours alone. Tap your answer, then press SUBMIT ANSWER.":`${m.names[m.team]} is answering their own final question. No steal on this one.`;
  else if(answering)wait=mine?"Your turn! Tap your answer, then press SUBMIT ANSWER.":`${m.names[m.team]} is answering. Get ready in case there's a steal!`;
- else if(m.state==="final-ready")wait="The Final Jackpot is coming up on the big screen.";
+ else if(m.state==="wager")wait=myLocked?`🔒 Your wager is locked in${myWager!==null?`: ${myWager} points`:""}. Waiting for the other team…`:"FINAL ROUND! Type how many points you want to wager, then press LOCK IN WAGER. You'll see your question after both teams lock in.";
+ else if(m.state==="final-ready"||m.state==="final-reveal")wait="The Final Round is happening on the big screen.";
  else if(m.state==="lobby")wait="You're in! The game starts when both teams have joined and the instructor presses Begin.";
  else if(m.state==="done")wait="Game over! Look at the big screen.";
  else wait="Watch the big screen.";
@@ -1216,24 +1265,95 @@ function renderRemote(m){
  if(m.flash&&m.flash.id&&m.flash.id!==remoteFlashId){remoteFlashId=m.flash.id;if(Date.now()-(m.flash.at||0)<4000||!m.flash.at)showFlash(m.flash.text,m.flash.sub,m.flash.kind);}
 }
 
-/* ---------- Final jackpot ---------- */
+/* ---------- Final round: wagers, then one hard question per team ---------- */
 function showFinal(){
  if(state==="done")return;
  nextPhase();stopTimer();
- currentTeam=scores[0]===scores[1]?1-startTeam:(scores[0]<scores[1]?0:1);
- state="final";finalStarter=currentTeam;timerMode="final";currentTimerLength=QUESTION_SECONDS;timeLeft=QUESTION_SECONDS;showTime();
+ if(!finalBegun){finalBegun=true;finalStep=0;const first=scores[0]===scores[1]?1-startTeam:(scores[0]<scores[1]?0:1);finalOrder=[first,1-first];}
+ if(!wagersSet){openWagers();return;}
+ askFinal();
+}
+function openWagers(){
+ state="wager";currentTeam=finalOrder[0];finalStarter=currentTeam;timeLeft=QUESTION_SECONDS;
+ $("finalTimer").textContent="";document.body.classList.add("final-mode");
+ $("wagerPanel").hidden=false;$("finalAsk").hidden=true;$("finalChoices").innerHTML="";$("finalText").textContent="";
+ $("finalHeading").textContent="Final Round — Place Your Wagers";
+ [0,1].forEach(t=>{$("wager"+t).value=wagers[t]!==null&&!wagerLocked[t]?wagers[t]:"";});
+ $("wagerHint").textContent=mode==="host"?"Teams lock in their wagers on their own computers. You can also type a wager here for a team.":"Each team tells the instructor its wager privately; the instructor types it here (the numbers stay hidden).";
+ $("finalModal").style.display="flex";
+ renderWagers();updateTeams();
+ setMessage(`Final Round! ${tn(0)}: wager up to ${wagerMax(0)}. ${tn(1)}: wager up to ${wagerMax(1)}.`);
+ drumrollSound();
+ setTimeout(inPhase(()=>speak(wagerSpeech())),1700);
+}
+function wagerSpeech(){
+ return `It's the Final Round, with the Golden Speculum on the line! ${scoreUpdateText()} Each team gets its own hard final question, and there's no steal. Before you see it, decide how many points to wager. ${tn(0)}, you can wager up to ${wagerMax(0)}. ${tn(1)}, you can wager up to ${wagerMax(1)}. Get it right and you win your wager. Get it wrong and you lose it. ${mode==="host"?"Type your wager on your team computer and lock it in.":"Tell your instructor your wager privately."}`;
+}
+function renderWagers(){
+ [0,1].forEach(t=>{
+  $("wName"+t).textContent=`${t?"☀️":"🐶"} ${tn(t)}`;$("wMax"+t).textContent=`0 to ${wagerMax(t)}`;
+  const inp=$("wager"+t),st=$("wStat"+t);inp.disabled=wagerLocked[t];if(wagerLocked[t])inp.value="";
+  inp.placeholder=wagerLocked[t]?"locked":"wager";
+  st.textContent=wagerLocked[t]?"🔒 Locked in":wagers[t]!==null?"✓ Wager entered":inp.value.trim()?`⚠ 0 to ${wagerMax(t)} only`:"Waiting…";
+  st.className="wstat"+(wagers[t]!==null?" ok":inp.value.trim()?" bad":"");
+ });
+ $("wagerGo").disabled=!(state==="wager"&&wagers.every(w=>w!==null));
+ saveGame();
+}
+function validWager(t,n){return Number.isInteger(n)&&n>=0&&n<=wagerMax(t);}
+function typeWager(t){
+ if(state!=="wager"||wagerLocked[t])return;
+ const v=$("wager"+t).value.trim(),n=Number(v);
+ wagers[t]=v!==""&&validWager(t,n)?n:null;renderWagers();
+}
+function setWager(t,n,fromTeam){
+ if(state!=="wager"||!validWager(t,n))return;
+ wagers[t]=n;if(fromTeam)wagerLocked[t]=true;
+ clickSound();renderWagers();
+ const both=wagers.every(w=>w!==null);
+ setMessage(both?"Both wagers are in! Instructor, press START.":`${tn(t)} locked in a wager.`);
+ if(fromTeam)speak(both?`${tn(t)} locked in a wager. Both teams are ready! Instructor, press start.`:`${tn(t)} locked in a wager.`,null,true);
+}
+function startFinalQuestions(){
+ if(state!=="wager"||!wagers.every(w=>w!==null))return;
+ wagersSet=true;finalStep=0;askFinal();
+}
+function askFinal(){
+ nextPhase();stopTimer();
+ FINAL=FINAL_PAIR[finalStep];currentTeam=finalOrder[finalStep];finalStarter=currentTeam;
+ state="final";timerMode="final";currentTimerLength=QUESTION_SECONDS;timeLeft=QUESTION_SECONDS;showTime();
  document.body.classList.add("final-mode");
+ $("wagerPanel").hidden=true;$("finalAsk").hidden=false;
  clearChoiceSelection("finalChoices");renderChoices(FINAL,"finalChoices");
  markSata($("finalText"),FINAL.q);
  $("finalAnswer").textContent="Correct answer: "+answerText(FINAL);$("finalAnswer").style.display="none";
- $("finalHeading").textContent=`Question ${gameQs.length+1} — Final Jackpot (${FINAL_POINTS} points)`;
+ $("finalHeading").textContent=`Final Question ${finalStep+1} of 2 — ${tn(currentTeam)}`;
  $("finalModal").style.display="flex";
  updateTeams();
- setMessage(`${tn(currentTeam)}: choose your answer for ${FINAL_POINTS} points, then press Submit.`);
+ setMessage(`${tn(currentTeam)}: this final question is yours alone. Choose your answer, then press Submit.`);
  drumrollSound();
- setTimeout(inPhase(()=>speak(`It's time for the Final Jackpot, worth ${FINAL_POINTS} points, with the Golden Speculum on the line! ${scores[0]===scores[1]?`It's tied, so ${tn(currentTeam)} gets the first shot.`:`${tn(currentTeam)} is behind, so you get the first shot.`} ${spokenQuestion(FINAL)} You have ${spokenTime(QUESTION_SECONDS)}. Go!`,inPhase(startTimer))),1700);
+ const intro=finalStep?`Now it's ${tn(currentTeam)}'s turn.`:scores[0]===scores[1]?`It's tied, so ${tn(currentTeam)} goes first.`:`${tn(currentTeam)} is behind, so you go first.`;
+ setTimeout(inPhase(()=>speak(`${intro} Here is your final question. ${spokenQuestion(FINAL)} You have ${spokenTime(QUESTION_SECONDS)}. Go!`,inPhase(startTimer))),1700);
 }
-function readFinal(){speak(`Final Jackpot. ${spokenQuestion(FINAL)}`,null,true);}
+function finishFinal(team,lead){
+ const w=wagers[team]||0,right=isCorrect(FINAL,selectedAnswers);
+ revealChoices(FINAL,"finalChoices");
+ if(right){scores[team]+=w;jackpotSound();flash("CORRECT!",`+${w} ${tn(team)}`,"gold");}
+ else{scores[team]=Math.max(0,scores[team]-w);wrongSound();flash("NOT QUITE",w?`−${w} ${tn(team)}`:tn(team),"bad");$("finalAnswer").style.display="block";}
+ updateScores();
+ const msg=`${lead}${right?pickLine(["That's right!","Correct!","Nailed it!"]):"Not quite."} ${tn(team)} wagered ${w} points${w?`, and ${right?"win":"lose"}${tn(team).endsWith("s")?"":"s"} them`:""}.`;
+ const spoken=`${msg}${right?"":` The correct answer is ${spokenAnswer(FINAL)}.`}`;
+ finalStep++;
+ if(finalStep>=2){state="done";updateTeams();setMessage(msg);speak(spoken,inPhase(announceWinner));return;}
+ state="final-reveal";updateTeams();
+ setMessage(`${msg} ${scoreUpdateText()} Press NEXT FINAL QUESTION for ${tn(finalOrder[1])}.`);
+ speak(`${spoken} ${scoreUpdateText()}`);
+}
+function nextFinal(){if(state==="final-reveal")askFinal();}
+function readFinal(){
+ if(state==="wager"){speak(wagerSpeech(),null,true);return;}
+ if(state==="final"||state==="final-reveal")speak(`Final question. ${spokenQuestion(FINAL)}`,null,true);
+}
 function launchConfetti(){
  const colors=["#ffcc33","#22c58b","#ffffff","#1f44e0","#f97316"];
  for(let i=0;i<120;i++){
@@ -1263,8 +1383,8 @@ function closeFinal(){
  $("finalModal").style.display="none";document.body.classList.remove("final-mode");
  if(state==="done")return;
  nextPhase();stopTimer();silenceSpeech();
- state="final-ready";currentTeam=finalStarter;updateTeams();
- setMessage("Final Jackpot paused. Press OPEN FINAL JACKPOT to start it again.");
+ state="final-ready";currentTeam=finalOrder[Math.min(finalStep,1)];updateTeams();
+ setMessage("Final Round paused. Press OPEN FINAL ROUND to continue.");
 }
 
 $("topicsOption").value=TEST_TOPICS.length;$("topicsOption").textContent=`Every test topic: ${TEST_TOPICS.length} questions (about 1½ hours)`;
