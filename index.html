@@ -159,6 +159,9 @@ select option{background:#0f1c5e;color:#fff}
 .remote-leave{text-align:center;margin-top:24px}
 .remote .choice.mine{cursor:pointer}
 .remote .choices:not(.active) .choice{cursor:default;opacity:.85}
+.golden{color:var(--gold)}
+.flash.gold{font-size:clamp(46px,9vw,120px)}
+.flash.stay.show{animation:flashPop 6.5s ease forwards}
 .confetti-piece{position:fixed;width:10px;height:18px;top:-20px;z-index:9999;border-radius:2px;animation:fall 3.2s linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.9}}
 .score-report{font-family:"Bebas Neue",Impact,sans-serif;font-size:clamp(24px,3vw,34px);letter-spacing:.03em;text-align:center;padding:16px;border-radius:18px;background:linear-gradient(135deg,rgba(255,204,51,.22),rgba(255,204,51,.06));border:2px solid var(--gold);color:var(--gold);margin-top:16px}
@@ -168,7 +171,7 @@ select option{background:#0f1c5e;color:#fff}
 </style>
 </head>
 <body>
-<header><h1>Spin the Speculum!</h1><p id="matchup">🐶 Jerry's Odd Squad (1, 3, 5…) vs. ☀️ The Even Suns (2, 4, 6…)</p></header>
+<header><h1>Spin the Speculum!</h1><p id="matchup">🐶 Jerry's Odd Squad (1, 3, 5…) vs. ☀️ The Even Suns (2, 4, 6…) · battling for the 🏆 Golden Speculum</p></header>
 <div id="hostPanel" class="hostpanel" hidden>
 <div class="joincode"><span>Game code</span><b id="hostCode">----</b></div>
 <p class="joinhow">On each team computer, open <b>sescobar1.github.io/ATU-Nursing-game</b>, tap <b>Team 1</b> or <b>Team 2</b> and enter this code.</p>
@@ -275,7 +278,7 @@ select option{background:#0f1c5e;color:#fff}
 
 <div class="modal" id="setupModal" style="display:flex">
 <div class="modalbox setup">
-<h2>Spin the Speculum!</h2><p class="tagline">Spin it, answer it, steal it. A women's health and family nursing review game.</p>
+<h2>Spin the Speculum!</h2><p class="tagline">Spin it, answer it, steal it. Two teams battle for the 🏆 <b class="golden">Golden Speculum</b>.</p>
 <div id="rolePick">
 <p class="rolelabel">Who's signing in?</p>
 <div class="roles">
@@ -840,7 +843,7 @@ function applyGame(g){
  const finished=qIndex>=gameQs.length;
  state=g.state==="done"?"done":finished?"final-ready":"ready";
  $("name1Label").textContent=tn(0);$("name2Label").textContent=tn(1);
- $("matchup").textContent=`🐶 ${tn(0)} (1, 3, 5…) vs. ☀️ ${tn(1)} (2, 4, 6…)`;
+ $("matchup").textContent=`🐶 ${tn(0)} (1, 3, 5…) vs. ☀️ ${tn(1)} (2, 4, 6…) · battling for the 🏆 Golden Speculum`;
  gameStarted=true;
  clearChoiceSelection();updateScores();updateTeams();showTime();
  $("wheelResult").textContent="Spin to begin";
@@ -862,7 +865,7 @@ function startNewGame(){
  if(document.querySelector('input[name="mode"]:checked').value==="host")startHostLink(newCode());
  else{mode="solo";$("hostPanel").hidden=true;if(link){link.close();link=null;}}
  setMessage(`${tn(0)} begins the game.`);
- speak(`Welcome to Spin the Speculum! ${tn(0)}, you're up first. Spin the wheel!`);
+ speak(`Welcome to Spin the Speculum! Today, two teams battle for the Golden Speculum. ${tn(0)}, you're up first. Spin the wheel!`);
 }
 function resumeGame(){
  const g=loadSave();if(!g){showSetup();return;}
@@ -1081,7 +1084,7 @@ function showFinal(){
  updateTeams();
  setMessage(`${tn(currentTeam)}: choose your answer for ${FINAL_POINTS} points, then press Submit.`);
  drumrollSound();
- setTimeout(inPhase(()=>speak(`It's time for the Final Jackpot, worth ${FINAL_POINTS} points! ${tn(currentTeam)}, this one is yours. ${spokenQuestion(FINAL)} You have ${spokenTime(QUESTION_SECONDS)}. Go!`,inPhase(startTimer))),1700);
+ setTimeout(inPhase(()=>speak(`It's time for the Final Jackpot, worth ${FINAL_POINTS} points, with the Golden Speculum on the line! ${tn(currentTeam)}, this one is yours. ${spokenQuestion(FINAL)} You have ${spokenTime(QUESTION_SECONDS)}. Go!`,inPhase(startTimer))),1700);
 }
 function readFinal(){speak(`Final Jackpot. ${spokenQuestion(FINAL)}`,null,true);}
 function launchConfetti(){
@@ -1099,11 +1102,11 @@ function launchConfetti(){
 }
 function announceWinner(){
  let msg;
- if(scores[0]===scores[1]){msg=`And that's the game! It ends in a tie, ${scores[0]} to ${scores[1]}. Great job, everyone!`;flash("IT'S A TIE!","","gold");}
+ if(scores[0]===scores[1]){msg=`And that's the game! It ends in a tie, ${scores[0]} to ${scores[1]}, so both teams share the Golden Speculum. Great job, everyone!`;flash("🏆 IT'S A TIE!","Both teams share the Golden Speculum","gold stay");}
  else{
   const w=scores[0]>scores[1]?0:1,name=tn(w);
-  msg=`And that's the game! ${name} win${name.endsWith("s")?"":"s"}, ${scores[w]} to ${scores[1-w]}. Congratulations!`;
-  flash(`${name.toUpperCase()} WIN${name.endsWith("s")?"":"S"}!`,`${scores[w]} to ${scores[1-w]}`,"gold");
+  msg=`And that's the game! ${name} win${name.endsWith("s")?"":"s"} the Golden Speculum, ${scores[w]} to ${scores[1-w]}. Congratulations!`;
+  flash(`🏆 ${name.toUpperCase()} WIN${name.endsWith("s")?"":"S"} THE GOLDEN SPECULUM!`,`${scores[w]} to ${scores[1-w]}`,"gold stay");
  }
  setMessage(msg);
  launchConfetti();fanfareSound();
