@@ -57,6 +57,8 @@ canvas{width:300px;height:300px;max-width:100%;border-radius:50%;box-shadow:0 22
 @keyframes pulseTimer{from{transform:scale(1)}to{transform:scale(1.15)}}
 .question{margin-top:14px;background:linear-gradient(180deg,#1f44e0,#0a1d8f);border:2px solid rgba(255,255,255,.18);border-radius:20px;padding:30px 26px;min-height:190px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(22px,2.8vw,34px);font-weight:600;line-height:1.3;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.55);box-shadow:inset 0 0 50px rgba(0,0,0,.35),0 14px 30px rgba(0,0,0,.3)}
 .qnum{font-family:"Bebas Neue",Impact,sans-serif;font-size:26px;letter-spacing:.1em;color:var(--gold);margin-bottom:10px;text-shadow:none}
+.sata-flag{font-weight:800;color:#fff;background:#e11d2e;padding:.04em .35em;border-radius:.3em;text-shadow:none;white-space:nowrap;box-shadow:0 2px 0 #8f0f1b}
+.typehint .sata-flag{font-size:1.05em}
 .typehint{text-align:center;margin-top:16px;font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
 .choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;margin-top:12px}
 .choice{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.06);border:2px solid var(--line);border-radius:16px;padding:14px 16px;font-size:18px;font-weight:600;color:#fff;text-align:left;cursor:pointer;user-select:none;transition:transform .15s,background .15s,border-color .15s,box-shadow .15s}
@@ -540,6 +542,8 @@ function revealChoices(q,targetId){
   el.classList.toggle("wrong",selectedAnswers.includes(i)&&!q.correct.includes(i));
  });
 }
+// Show "Select all that apply" in bold red wherever it appears.
+function markSata(node,text){node.textContent="";text.split(/(select all that apply\.?)/i).forEach((part,i)=>{if(!part)return;if(i%2){const b=document.createElement("strong");b.className="sata-flag";b.textContent=part;node.appendChild(b);}else node.appendChild(document.createTextNode(part));});}
 function questionTypeLabel(q){return q.type==="sata"?"SELECT ALL THAT APPLY — click every answer you choose, then press Submit":q.type==="tf"?"TRUE / FALSE — click your answer, then press Submit":"MULTIPLE CHOICE — click your answer, then press Submit"}
 
 /* ---------- Timer ---------- */
@@ -594,7 +598,7 @@ function loadQuestion(){
  state="question";currentTimerLength=QUESTION_SECONDS;timerMode="question";
  document.body.classList.remove("final-mode");
  clearChoiceSelection();renderChoices(q);
- $("qnum").textContent=`QUESTION ${qIndex+1}`;$("qtext").textContent=q.q;$("typeHint").textContent=questionTypeLabel(q);
+ $("qnum").textContent=`QUESTION ${qIndex+1}`;markSata($("qtext"),q.q);markSata($("typeHint"),questionTypeLabel(q));
  $("answer").textContent=`Correct answer: ${answerText(q)}`;$("answer").style.display="none";
  $("count").textContent=`Question ${qIndex+1} of ${gameQs.length}`;$("value").textContent=currentPoints+" points";
  updateTeams();
@@ -769,7 +773,7 @@ function showFinal(){
  state="final";finalStarter=currentTeam;timerMode="final";currentTimerLength=QUESTION_SECONDS;timeLeft=QUESTION_SECONDS;showTime();
  document.body.classList.add("final-mode");
  clearChoiceSelection("finalChoices");renderChoices(FINAL,"finalChoices");
- $("finalText").textContent=FINAL.q;
+ markSata($("finalText"),FINAL.q);
  $("finalAnswer").textContent="Correct answer: "+answerText(FINAL);$("finalAnswer").style.display="none";
  $("finalHeading").textContent=`Question ${gameQs.length+1} — Final Jackpot (${FINAL_POINTS} points)`;
  $("finalModal").style.display="flex";
