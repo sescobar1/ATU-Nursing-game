@@ -106,6 +106,10 @@ select option{background:#0f1c5e;color:#fff}
 .paused-word{font-family:"Bebas Neue",Impact,sans-serif;font-size:clamp(80px,16vw,180px);letter-spacing:.06em;line-height:1;color:var(--gold);text-shadow:0 6px 0 var(--gold-d),0 0 60px rgba(255,204,51,.5);animation:pausePulse 1.6s ease-in-out infinite alternate}
 .pausebox p{color:#dbe3ff;font-weight:600;font-size:20px;margin:6px 0 22px}
 @keyframes pausePulse{from{opacity:1}to{opacity:.55}}
+.voicecheck{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+.voicecheck span{color:var(--muted);font-size:14px;font-weight:600;flex:1;min-width:200px}
+.voicecheck span[data-kind="ok"]{color:#6ff3b8}.voicecheck span[data-kind="bad"],.voice-status{color:#ffb547}
+.voice-status{text-align:center;font-weight:700;margin:10px 0 0;min-height:0}
 .confetti-piece{position:fixed;width:10px;height:18px;top:-20px;z-index:9999;border-radius:2px;animation:fall 3.2s linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.9}}
 .score-report{font-family:"Bebas Neue",Impact,sans-serif;font-size:clamp(24px,3vw,34px);letter-spacing:.03em;text-align:center;padding:16px;border-radius:18px;background:linear-gradient(135deg,rgba(255,204,51,.22),rgba(255,204,51,.06));border:2px solid var(--gold);color:var(--gold);margin-top:16px}
@@ -157,6 +161,7 @@ select option{background:#0f1c5e;color:#fff}
 
 <div class="audio">
 <label><strong>Voice:</strong></label><select id="voiceSelect" onchange="changeVoice()"></select>
+<button class="secondary" onclick="testVoice()">🔊 Test Voice</button>
 <button class="secondary" onclick="repeatQuestion()">Read Question</button>
 <button class="secondary" onclick="toggleAutoRead()" id="autoBtn">Auto-Read: ON</button>
 <button class="secondary" onclick="toggleSounds()" id="soundBtn">Sounds: ON</button>
@@ -166,6 +171,7 @@ select option{background:#0f1c5e;color:#fff}
 <button class="secondary" id="fsBtn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
 <button class="secondary" onclick="resetGame()">Reset Game</button>
 </div>
+<p id="voiceStatus" class="voice-status" aria-live="polite"></p>
 <div id="scoreReport" class="score-report" style="display:none"></div>
 <div class="progress"><div id="progress"></div></div>
 </section>
@@ -209,6 +215,7 @@ select option{background:#0f1c5e;color:#fff}
 <option value="all" id="allOption">Full review: all questions</option>
 </select></label>
 <p class="hint">Each question comes from a different test topic, and a new mix is drawn every game. Every game ends with a 1000-point Final Jackpot. Times are estimates; teams that answer quickly finish sooner. Progress is saved automatically if the page is refreshed.</p>
+<div class="voicecheck"><button class="secondary" type="button" onclick="testVoice()">🔊 Test Voice</button><span id="voiceTest">Check the sound before class.</span></div>
 <div class="controls"><button class="primary" onclick="startNewGame()">START GAME</button></div>
 </div>
 </div>
@@ -294,44 +301,88 @@ let pendingSpeech=null,currentUtt=null,speechWatch=null;
 // Most natural-sounding female voices first (Edge "Natural" voices, then Chrome/Mac voices).
 const VOICE_PREFS=[/Microsoft (Ava|Emma|Jenny|Aria|Michelle|Sonia|Libby|Natasha).*(Natural|Online)/i,/(Natural|Neural).*(Female|Ava|Emma|Jenny|Aria|Michelle)/i,/Google US English/i,/Samantha/i,/\bAva\b/i,/Allison|Susan|Victoria|Karen|Moira|Tessa/i,/Google UK English Female/i,/Zira/i,/Female/i,/Natural|Neural/i];
 function voiceRank(v){const i=VOICE_PREFS.findIndex(p=>p.test(v.name));return i<0?VOICE_PREFS.length+(v.lang==="en-US"?0:1):i;}
+const badVoices=new Set();
+let voiceHeard=false,voiceFailures=0;
+function englishVoices(){return hasSpeech?speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.toLowerCase().startsWith("en")):[];}
 function loadVoices(){
- const voices=speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.startsWith("en")).sort((a,b)=>voiceRank(a)-voiceRank(b));
+ const voices=englishVoices().sort((a,b)=>voiceRank(a)-voiceRank(b));
  const prevName=selectedVoice&&selectedVoice.name;
- const pick=userPickedVoice?voices.find(v=>v.name===prevName):null;
- selectedVoice=pick||voices[0]||null;
+ const pick=voices.find(v=>v.name===prevName&&(userPickedVoice||badVoices.size));
+ selectedVoice=pick||voices.find(v=>!badVoices.has(v.name))||voices[0]||null;
  const s=$("voiceSelect");s.innerHTML="";
- voices.forEach((v,i)=>{const o=document.createElement("option");o.value=v.name;o.textContent=(i===0?"★ ":"")+v.name.replace(/ - English.*$/,"")+" ("+v.lang+")";s.appendChild(o);});
+ voices.forEach((v,i)=>{const o=document.createElement("option");o.value=v.name;o.textContent=(i===0?"★ ":"")+v.name.replace(/ - English.*$/,"")+(v.localService?"":" (online)");s.appendChild(o);});
  if(selectedVoice)s.value=selectedVoice.name;
 }
 if(hasSpeech){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
-function changeVoice(){if(!hasSpeech)return;selectedVoice=speechSynthesis.getVoices().find(v=>v.name===$("voiceSelect").value)||selectedVoice;userPickedVoice=true;speak("Hi there! This is how I'll sound during the game.",null,true);}
+// When a voice fails, switch to the best voice installed on the computer (works without internet).
+function fallbackVoice(){
+ return englishVoices().filter(v=>!badVoices.has(v.name)).sort((a,b)=>(b.localService-a.localService)||(voiceRank(a)-voiceRank(b)))[0]||null;
+}
+function setVoiceStatus(kind){
+ const msg=kind==="bad"?"⚠ No voice is playing. Turn up the volume, pick another voice from the Voice menu, or open the game in Microsoft Edge or Chrome.":"";
+ ["voiceStatus","voiceTest"].forEach(id=>{const el=$(id);if(el&&(kind==="bad"||el.dataset.kind==="bad")){el.textContent=msg;el.dataset.kind=kind;}});
+}
+function changeVoice(){if(!hasSpeech)return;selectedVoice=englishVoices().find(v=>v.name===$("voiceSelect").value)||selectedVoice;if(selectedVoice)badVoices.delete(selectedVoice.name);userPickedVoice=true;speak("Hi there! This is how I'll sound during the game.",null,true);}
+function testVoice(){
+ const el=$("voiceTest");
+ if(!hasSpeech){el.textContent="✗ This browser can't read aloud. Open the game in Microsoft Edge or Chrome.";el.dataset.kind="bad";return;}
+ voiceHeard=false;el.dataset.kind="";el.textContent="Speaking… listen for the voice.";
+ speak("Hi! If you can hear me, the voice is working. Let's play!",()=>{
+  el.dataset.kind=voiceHeard?"ok":"bad";
+  el.textContent=voiceHeard?`✓ The voice is working (${selectedVoice?selectedVoice.name.replace(/ - English.*$/,""):"default voice"}). If you didn't hear it, turn up the volume.`:"⚠ No voice played. Turn up the volume, try Test Voice again, or open the game in Microsoft Edge or Chrome.";
+ },true);
+}
 function finishSpeech(){const p=pendingSpeech;pendingSpeech=null;currentUtt=null;clearTimeout(speechWatch);if(p)p();}
-// Speech is spoken one sentence at a time, which sounds more natural and avoids browsers cutting off long text.
+// Text is spoken in short chunks (a sentence or a few), which sounds natural and avoids browsers cutting off long text.
+function speechChunks(t){
+ const sents=t.replace(/\s+/g," ").trim().replace(/([.!?])\s+(?=["“A-Z0-9])/g,"$1\u0000").split("\u0000").filter(Boolean);
+ const out=[];for(const x of sents){if(out.length&&out[out.length-1].length+x.length<160)out[out.length-1]+=" "+x;else out.push(x);}
+ return out;
+}
 // onend always runs exactly once: when speech ends, errors, is interrupted, is stopped, or is unavailable.
-function sentences(t){return t.replace(/\s+/g," ").trim().split(/(?<=[.!?])\s+(?=["“A-Z0-9])/).filter(Boolean);}
+// Each chunk is retried once, then retried with a different voice, so one broken voice can't silence the game.
 function speak(t,onend=null,force=false){
  if(onend)finishSpeech();
  else if(pendingSpeech){onend=pendingSpeech;pendingSpeech=null;} // a re-read keeps the pending game step
  if(!(autoRead||force)||!hasSpeech){currentUtt=null;clearTimeout(speechWatch);if(onend)onend();return;}
+ const wasBusy=speechSynthesis.speaking||speechSynthesis.pending;
  speechSynthesis.cancel();clearTimeout(speechWatch);
- const parts=sentences(t),token={};
+ const parts=speechChunks(t),token={};
  currentUtt=token;pendingSpeech=onend;
  let i=0;
- const next=()=>{
+ const say=(text,attempt)=>{
   if(currentUtt!==token)return;
-  if(i>=parts.length){finishSpeech();return;}
-  const text=parts[i++],u=new SpeechSynthesisUtterance(text);
-  u.rate=1;u.pitch=1;u.volume=1;if(selectedVoice){u.voice=selectedVoice;u.lang=selectedVoice.lang;}
-  let fired=false;
-  const advance=()=>{if(fired)return;fired=true;clearTimeout(speechWatch);if(currentUtt===token)setTimeout(next,90);};
-  u.onend=advance;u.onerror=advance;
-  // Safety net: some browsers silently drop an utterance without firing onend.
-  const est=text.length*90+2500,started=Date.now();
-  const watch=()=>{if(fired||currentUtt!==token)return;if(!speechSynthesis.speaking||Date.now()-started>est*2)advance();else speechWatch=setTimeout(watch,800);};
-  speechWatch=setTimeout(watch,est);
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=1;u.pitch=1;u.volume=1;
+  if(selectedVoice){u.voice=selectedVoice;u.lang=selectedVoice.lang;}else u.lang="en-US";
+  window.__speaking=u; // keep a reference so the browser can't discard it mid-sentence
+  let done=false,started=false;const t0=Date.now();
+  const finish=ok=>{
+   if(done)return;done=true;clearTimeout(speechWatch);
+   if(currentUtt!==token)return;
+   if(ok){voiceFailures=0;setTimeout(next,60);return;}
+   if(attempt===0){speechSynthesis.cancel();setTimeout(()=>say(text,1),150);return;}
+   if(attempt===1&&selectedVoice){badVoices.add(selectedVoice.name);const fb=fallbackVoice();
+    if(fb&&fb.name!==selectedVoice.name){selectedVoice=fb;const s=$("voiceSelect");if(s)s.value=fb.name;speechSynthesis.cancel();setTimeout(()=>say(text,2),150);return;}}
+   if(++voiceFailures>=2)setVoiceStatus("bad");
+   setTimeout(next,60);
+  };
+  u.onstart=()=>{started=true;voiceHeard=true;setVoiceStatus("ok");};
+  u.onend=()=>finish(started||Date.now()-t0>400);
+  u.onerror=e=>finish(e.error==="interrupted"||e.error==="canceled");
+  // Safety nets: a chunk that never starts counts as a failure; one that never reports ending moves on anyway.
+  const est=text.length*90+3000;
+  const watch=()=>{if(done||currentUtt!==token)return;
+   if(!started){if(!speechSynthesis.speaking||Date.now()-t0>6000){finish(false);return;}}
+   else if(!speechSynthesis.speaking||Date.now()-t0>est*2){finish(true);return;}
+   speechWatch=setTimeout(watch,700);};
+  speechWatch=setTimeout(watch,3000);
+  if(speechSynthesis.paused)speechSynthesis.resume();
   speechSynthesis.speak(u);
  };
- next();
+ const next=()=>{if(currentUtt!==token)return;if(i>=parts.length){finishSpeech();return;}say(parts[i++],0);};
+ // Some browsers drop speech started right after cancelling other speech, so wait a moment in that case.
+ if(wasBusy)setTimeout(next,120);else next();
 }
 const pickLine=a=>a[Math.floor(Math.random()*a.length)];
 function stopSpeaking(){if(hasSpeech)speechSynthesis.cancel();finishSpeech();}
