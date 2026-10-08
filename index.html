@@ -120,7 +120,14 @@ select option{background:#0f1c5e;color:#fff}
 .modepick input:checked+span{border-color:var(--gold);background:rgba(255,204,51,.16);box-shadow:0 0 0 3px rgba(255,204,51,.2)}
 .modepick input:focus-visible+span{outline:3px solid var(--gold);outline-offset:2px}
 .setup #joinCode{font-family:"Bebas Neue",Impact,sans-serif;font-size:44px;letter-spacing:.3em;text-transform:uppercase;text-align:center}
-.teampick{display:flex;gap:10px;flex-wrap:wrap}.teampick button{flex:1;min-width:200px}
+.rolelabel{font-weight:800;font-size:18px;margin:14px 0 8px}
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:10px}
+.role{display:flex;flex-direction:column;align-items:center;gap:4px;padding:18px 12px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.07);color:#fff;font-size:16px}
+.role:hover:not(:disabled){background:rgba(255,204,51,.14);border-color:var(--gold)}
+.role .ri{font-size:40px;line-height:1}.role b{font-family:"Bebas Neue",Impact,sans-serif;font-weight:400;font-size:30px;letter-spacing:.05em;color:var(--gold)}
+.role small{color:var(--muted);font-weight:600;font-size:13px}
+.rolechosen{font-weight:800;color:var(--gold);margin:12px 0 0}
+.linkbtn{background:none;border:none;color:var(--muted);font-weight:700;padding:8px 0;margin-top:6px;text-decoration:underline}
 .joinmsg{color:#ffb547;font-weight:700;min-height:1.4em}
 .hostpanel{max-width:1200px;margin:6px auto 0;padding:12px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;text-align:center}
 .joincode{display:flex;flex-direction:column;align-items:center;background:rgba(255,204,51,.12);border:2px solid var(--gold);border-radius:18px;padding:6px 22px}
@@ -253,19 +260,28 @@ select option{background:#0f1c5e;color:#fff}
 <div class="modal" id="setupModal" style="display:flex">
 <div class="modalbox setup">
 <h2>Spin the Speculum!</h2><p class="tagline">Spin it, answer it, steal it. A women's health and family nursing review game.</p>
-<div class="modepick" role="radiogroup" aria-label="How are you playing?">
-<label><input type="radio" name="mode" value="solo" checked onchange="setupMode()"><span>🖥 One computer</span></label>
-<label><input type="radio" name="mode" value="host" onchange="setupMode()"><span>📺 Big screen + team computers</span></label>
-<label><input type="radio" name="mode" value="join" onchange="setupMode()"><span>💻 Join as a team computer</span></label>
+<div id="rolePick">
+<p class="rolelabel">Who's signing in?</p>
+<div class="roles">
+<button type="button" class="role" onclick="pickRole('team',0)"><span class="ri">🐶</span><b>Team 1</b><small>Jerry's Odd Squad · odd numbers</small></button>
+<button type="button" class="role" onclick="pickRole('team',1)"><span class="ri">☀️</span><b>Team 2</b><small>The Even Suns · even numbers</small></button>
+<button type="button" class="role" onclick="pickRole('instructor')"><span class="ri">🎓</span><b>Instructor</b><small>Set up and run the game</small></button>
+</div>
 </div>
 <div id="joinFields" hidden>
-<label>Game code (shown on the big screen)<input id="joinCode" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD"></label>
-<p class="hint">Which team is this computer?</p>
-<div class="teampick"><button type="button" class="primary" onclick="joinGame(0)">🐶 Odd numbers team</button><button type="button" class="primary" onclick="joinGame(1)">☀️ Even numbers team</button></div>
+<p class="rolechosen" id="joinWho"></p>
+<label>Game code (shown on the big screen)<input id="joinCode" onkeydown="if(event.key==='Enter')joinGame()" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD"></label>
+<div class="controls"><button class="primary" type="button" onclick="joinGame()">JOIN GAME</button></div>
 <p id="joinMsg" class="joinmsg" aria-live="polite"></p>
+<button type="button" class="linkbtn" onclick="pickRole()">← Back</button>
 </div>
-<div id="hostFields">
-<p id="hostHint" class="hint" hidden>The big screen runs the game with all the sound. Each team signs in on its own computer with the game code you'll see after you press Start, and the teams answer from there.</p>
+<div id="hostFields" hidden>
+<p class="rolechosen">🎓 Instructor · full control</p>
+<div class="modepick" role="radiogroup" aria-label="How are you playing?">
+<label><input type="radio" name="mode" value="host" checked onchange="setupMode()"><span>📺 Big screen + team computers</span></label>
+<label><input type="radio" name="mode" value="solo" onchange="setupMode()"><span>🖥 Everyone plays on this computer</span></label>
+</div>
+<p id="hostHint" class="hint">The big screen runs the game with all the sound. Each team signs in on its own computer with the game code you'll see after you press Start, and the teams answer from there.</p>
 <div id="resumeBox" class="resume" style="display:none">
 <p id="resumeText"></p>
 <button class="yes" onclick="resumeGame()">▶ RESUME SAVED GAME</button>
@@ -282,6 +298,7 @@ select option{background:#0f1c5e;color:#fff}
 <p class="hint">Each question comes from a different test topic, and a new mix is drawn every game. Every game ends with a 1000-point Final Jackpot. Times are estimates; teams that answer quickly finish sooner. Progress is saved automatically if the page is refreshed.</p>
 <div class="voicecheck"><button class="secondary" type="button" onclick="testVoice()">🔊 Test Voice</button><span id="voiceTest">Check the sound before class.</span></div>
 <div class="controls"><button class="primary" onclick="startNewGame()">START GAME</button></div>
+<button type="button" class="linkbtn" onclick="pickRole()">← Back</button>
 </div>
 </div>
 </div>
@@ -754,7 +771,7 @@ function resetGame(){
  if(!confirm("Start a new game? The current game and scores will be lost."))return;
  nextPhase();silenceSpeech();stopTimer();clearSave();gameStarted=false;
  $("finalModal").style.display="none";document.body.classList.remove("steal-mode","final-mode");
- showSetup();
+ showSetup("instructor");
 }
 
 /* ---------- Setup, save and resume ---------- */
@@ -778,13 +795,14 @@ function loadSave(){
   return g;
  }catch(e){return null;}
 }
-function showSetup(){
+function showSetup(view){
  const g=loadSave(),box=$("resumeBox");
  if(g&&g.state!=="done"){
   box.style.display="block";
   $("resumeText").textContent=`Saved game: ${g.names[0]} ${g.scores[0]}, ${g.names[1]} ${g.scores[1]} — ${Math.min(g.qIndex,g.order.length)} of ${g.order.length} questions done.`;
  }else box.style.display="none";
  $("name1").value=teamNames[0];$("name2").value=teamNames[1];
+ pickRole(view);
  $("setupModal").style.display="flex";
 }
 function applyGame(g){
@@ -904,12 +922,15 @@ function syncRemotes(now){
 }
 
 /* ----- team computer ----- */
-function setupMode(){
- const m=document.querySelector('input[name="mode"]:checked').value;
- $("joinFields").hidden=m!=="join";$("hostFields").hidden=m==="join";$("hostHint").hidden=m!=="host";
- if(m==="join")setTimeout(()=>$("joinCode").focus(),50);
+let joinTeam=0;
+function setupMode(){$("hostHint").hidden=document.querySelector('input[name="mode"]:checked').value!=="host";}
+// Sign-in: Team 1 and Team 2 join with the game code; the instructor sets up and runs the game.
+function pickRole(role,team){
+ $("rolePick").hidden=!!role;$("joinFields").hidden=role!=="team";$("hostFields").hidden=role!=="instructor";$("joinMsg").textContent="";
+ if(role==="team"){joinTeam=team;$("joinWho").textContent=`${team?"☀️ Team 2 · The Even Suns (even numbers)":"🐶 Team 1 · Jerry's Odd Squad (odd numbers)"}`;setTimeout(()=>$("joinCode").focus(),50);}
+ if(role==="instructor")setupMode();
 }
-async function joinGame(team){
+async function joinGame(team=joinTeam){
  const code=$("joinCode").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
  if(code.length!==4){$("joinMsg").textContent="Enter the 4-character game code shown on the big screen.";return;}
  try{sessionStorage.setItem("specRemote",JSON.stringify({code,team}));}catch(e){}
@@ -920,7 +941,7 @@ async function startRemote(code,team){
  // Team computers stay silent; all sound plays on the big screen.
  autoRead=false;soundsOn=false;silenceSpeech();stopTimerMusic();
  $("setupModal").style.display="none";document.querySelector("header").hidden=true;document.querySelector("main").hidden=true;$("remote").hidden=false;
- $("rTeam").textContent=`${team?"☀️ Even":"🐶 Odd"} numbers team · Game ${code}`;$("rConn").textContent="Connecting…";
+ $("rTeam").textContent=`${team?"☀️ Team 2":"🐶 Team 1"} · Game ${code}`;$("rConn").textContent="Connecting…";
  if(link)link.close();
  try{
   link=await openLink(code,onHostMessage,st=>{$("rConn").textContent=linkStatusText(st);if(st==="SUBSCRIBED")link.send({kind:"hello",team:myTeam});});
@@ -939,7 +960,7 @@ function onHostMessage(m){
 }
 function renderRemote(m){
  const mine=m.team===myTeam,answering=["question","steal","final","final-steal"].includes(m.state)&&!m.paused,canAnswer=mine&&answering&&!m.locked;
- if(m.names){teamNames=m.names;$("rName0").textContent="🐶 "+m.names[0];$("rName1").textContent="☀️ "+m.names[1];$("rTeam").textContent=`${myTeam?"☀️":"🐶"} ${m.names[myTeam]} · Game ${liveCode}`;}
+ if(m.names){teamNames=m.names;$("rName0").textContent="🐶 "+m.names[0];$("rName1").textContent="☀️ "+m.names[1];$("rTeam").textContent=`${myTeam?"☀️ Team 2":"🐶 Team 1"} · ${m.names[myTeam]} · Game ${liveCode}`;}
  $("rScore0").textContent=m.scores[0];$("rScore1").textContent=m.scores[1];
  const b=$("rBanner");b.textContent=m.paused?"PAUSED":m.banner;b.className="banner "+(m.team===0?"team1":"team2");
  $("rMessage").textContent=m.message;$("rCount").textContent=m.count;$("rValue").textContent=m.value;
@@ -1024,7 +1045,7 @@ updateTeams();showTime();showSetup();
 (()=>{let saved=null;try{saved=JSON.parse(sessionStorage.getItem("specRemote"));}catch(e){}
  const q=new URLSearchParams(location.search).get("join");
  if(saved&&/^[A-Z0-9]{4}$/.test(saved.code)&&(saved.team===0||saved.team===1)&&(!q||q.toUpperCase()===saved.code)){startRemote(saved.code,saved.team);return;}
- if(q){document.querySelector('input[name="mode"][value="join"]').checked=true;$("joinCode").value=q.toUpperCase().slice(0,4);setupMode();}
+ if(q)$("joinCode").value=q.toUpperCase().slice(0,4);
 })();
 </script>
 </body></html>
