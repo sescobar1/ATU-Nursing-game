@@ -112,6 +112,35 @@ select option{background:#0f1c5e;color:#fff}
 .voicecheck span{color:var(--muted);font-size:14px;font-weight:600;flex:1;min-width:200px}
 .voicecheck span[data-kind="ok"]{color:#6ff3b8}.voicecheck span[data-kind="bad"],.voice-status{color:#ffb547}
 .voice-status{text-align:center;font-weight:700;margin:10px 0 0;min-height:0}
+[hidden]{display:none!important}
+.modepick{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px;margin:12px 0 4px}
+.modepick label{margin:0;cursor:pointer}
+.modepick input{position:absolute;opacity:0;pointer-events:none}
+.modepick span{display:block;height:100%;padding:12px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.06);font-weight:700;text-align:center}
+.modepick input:checked+span{border-color:var(--gold);background:rgba(255,204,51,.16);box-shadow:0 0 0 3px rgba(255,204,51,.2)}
+.modepick input:focus-visible+span{outline:3px solid var(--gold);outline-offset:2px}
+.setup #joinCode{font-family:"Bebas Neue",Impact,sans-serif;font-size:44px;letter-spacing:.3em;text-transform:uppercase;text-align:center}
+.teampick{display:flex;gap:10px;flex-wrap:wrap}.teampick button{flex:1;min-width:200px}
+.joinmsg{color:#ffb547;font-weight:700;min-height:1.4em}
+.hostpanel{max-width:1200px;margin:6px auto 0;padding:12px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;text-align:center}
+.joincode{display:flex;flex-direction:column;align-items:center;background:rgba(255,204,51,.12);border:2px solid var(--gold);border-radius:18px;padding:6px 22px}
+.joincode span{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.joincode b{font-family:"Bebas Neue",Impact,sans-serif;font-weight:400;font-size:56px;line-height:1;letter-spacing:.18em;color:#fff}
+.joinhow{margin:0;max-width:420px;color:var(--muted);font-size:14px}
+.presence{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.pres{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.06);font-weight:700;font-size:14px}
+.pres.on{border-color:var(--green);background:rgba(34,197,139,.18);color:#bff7df}
+.pres.warn{border-color:#ffb547;color:#ffd79a}
+.remote{max-width:900px;margin:auto;padding:16px}
+.remote-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.remote-team{font-family:"Bebas Neue",Impact,sans-serif;font-size:32px;letter-spacing:.05em;color:var(--gold)}
+.remote-scores{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.remote-scores div{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700}
+.remote-scores b{font-family:"Bebas Neue",Impact,sans-serif;font-weight:400;font-size:40px;line-height:1}
+.remote-wait{text-align:center;color:var(--muted);font-weight:700;font-size:18px;min-height:1.4em}
+.remote-leave{text-align:center;margin-top:24px}
+.remote .choice.mine{cursor:pointer}
+.remote .choices:not(.active) .choice{cursor:default;opacity:.85}
 .confetti-piece{position:fixed;width:10px;height:18px;top:-20px;z-index:9999;border-radius:2px;animation:fall 3.2s linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.9}}
 .score-report{font-family:"Bebas Neue",Impact,sans-serif;font-size:clamp(24px,3vw,34px);letter-spacing:.03em;text-align:center;padding:16px;border-radius:18px;background:linear-gradient(135deg,rgba(255,204,51,.22),rgba(255,204,51,.06));border:2px solid var(--gold);color:var(--gold);margin-top:16px}
@@ -122,6 +151,11 @@ select option{background:#0f1c5e;color:#fff}
 </head>
 <body>
 <header><h1>Spin the Speculum!</h1><p id="matchup">🐶 Jerry's Odd Squad (1, 3, 5…) vs. ☀️ The Even Suns (2, 4, 6…)</p></header>
+<div id="hostPanel" class="hostpanel" hidden>
+<div class="joincode"><span>Game code</span><b id="hostCode">----</b></div>
+<p class="joinhow">On each team computer, open <b>sescobar1.github.io/ATU-Nursing-game</b>, choose <b>Join as a team computer</b> and enter this code.</p>
+<div class="presence"><span id="pres0" class="pres">🐶 waiting…</span><span id="pres1" class="pres">☀️ waiting…</span><span id="linkStatus" class="pres"></span></div>
+</div>
 <main>
 <div id="turnBanner" class="banner team1">JERRY'S ODD SQUAD — SPIN NOW</div>
 <div id="message" class="message">Set up the game to begin.</div>
@@ -179,6 +213,22 @@ select option{background:#0f1c5e;color:#fff}
 </section>
 </main>
 
+<section id="remote" class="remote" hidden>
+<div class="remote-top"><span id="rTeam" class="remote-team"></span><span id="rConn" class="badge">Connecting…</span></div>
+<div id="rBanner" class="banner team1">Connecting to the big screen…</div>
+<div class="remote-scores"><div><span id="rName0"></span><b id="rScore0">0</b></div><div><span id="rName1"></span><b id="rScore1">0</b></div></div>
+<div id="rMessage" class="message"></div>
+<section class="card">
+<div class="meta"><span class="badge" id="rCount"></span><span class="badge">Value: <span id="rValue">—</span></span><span class="timer" id="rTimer"></span></div>
+<div class="question"><div><div class="qnum" id="rQnum"></div><div id="rQtext">Waiting for the game to start…</div></div></div>
+<div id="rHint" class="typehint"></div>
+<div id="rChoices" class="choices"></div>
+<div class="controls"><button class="primary" id="rSpin" hidden>SPIN THE WHEEL</button><button class="yes" id="rSubmit" hidden>✓ SUBMIT ANSWER</button></div>
+<p id="rWait" class="remote-wait"></p>
+<p class="remote-leave"><button class="secondary" type="button" onclick="leaveGame()">Leave game</button></p>
+</section>
+</section>
+
 <div id="flash" class="flash" aria-live="polite"></div>
 
 <div class="modal pause-overlay" id="pauseOverlay">
@@ -203,6 +253,19 @@ select option{background:#0f1c5e;color:#fff}
 <div class="modal" id="setupModal" style="display:flex">
 <div class="modalbox setup">
 <h2>Spin the Speculum!</h2><p class="tagline">Spin it, answer it, steal it. A women's health and family nursing review game.</p>
+<div class="modepick" role="radiogroup" aria-label="How are you playing?">
+<label><input type="radio" name="mode" value="solo" checked onchange="setupMode()"><span>🖥 One computer</span></label>
+<label><input type="radio" name="mode" value="host" onchange="setupMode()"><span>📺 Big screen + team computers</span></label>
+<label><input type="radio" name="mode" value="join" onchange="setupMode()"><span>💻 Join as a team computer</span></label>
+</div>
+<div id="joinFields" hidden>
+<label>Game code (shown on the big screen)<input id="joinCode" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD"></label>
+<p class="hint">Which team is this computer?</p>
+<div class="teampick"><button type="button" class="primary" onclick="joinGame(0)">🐶 Odd numbers team</button><button type="button" class="primary" onclick="joinGame(1)">☀️ Even numbers team</button></div>
+<p id="joinMsg" class="joinmsg" aria-live="polite"></p>
+</div>
+<div id="hostFields">
+<p id="hostHint" class="hint" hidden>The big screen runs the game with all the sound. Each team signs in on its own computer with the game code you'll see after you press Start, and the teams answer from there.</p>
 <div id="resumeBox" class="resume" style="display:none">
 <p id="resumeText"></p>
 <button class="yes" onclick="resumeGame()">▶ RESUME SAVED GAME</button>
@@ -219,6 +282,7 @@ select option{background:#0f1c5e;color:#fff}
 <p class="hint">Each question comes from a different test topic, and a new mix is drawn every game. Every game ends with a 1000-point Final Jackpot. Times are estimates; teams that answer quickly finish sooner. Progress is saved automatically if the page is refreshed.</p>
 <div class="voicecheck"><button class="secondary" type="button" onclick="testVoice()">🔊 Test Voice</button><span id="voiceTest">Check the sound before class.</span></div>
 <div class="controls"><button class="primary" onclick="startNewGame()">START GAME</button></div>
+</div>
 </div>
 </div>
 
@@ -421,7 +485,8 @@ function timeUpSound(){sfx((ac,t)=>[98,104].forEach(f=>osc(ac,"sawtooth",f,t,1,.
 function drumrollSound(dur=1.6){sfx((ac,t)=>{for(let x=0;x<dur;x+=.045)noiseHit(ac,t+x,.06,.04+.12*(x/dur),"bandpass",250,.8);noiseHit(ac,t+dur,1.2,.28,"highpass",5000);osc(ac,"sine",80,t+dur,.5,.4,.005);});}
 function fanfareSound(){sfx((ac,t)=>{[[523,0,.18],[523,.2,.12],[523,.34,.12],[659,.5,.5],[784,1.05,.2],[659,1.28,.2],[784,1.5,.9]].forEach(([f,st,d])=>[1,1.005].forEach(det=>{const o=ac.createOscillator(),lp=ac.createBiquadFilter();o.type="sawtooth";o.frequency.value=f*det;lp.type="lowpass";lp.frequency.value=2400;o.connect(lp);env(ac,lp,t+st,.07,.03,d);o.start(t+st);o.stop(t+st+d+.1);}));applause(ac,t+.3,4,1.3);});}
 // Big on-screen announcement (CORRECT!, STEAL!, etc.)
-function flash(text,sub,kind){const f=$("flash");f.className="flash "+kind;f.innerHTML="";const a=document.createElement("div");a.textContent=text;f.appendChild(a);if(sub){const b=document.createElement("div");b.className="flash-sub";b.textContent=sub;f.appendChild(b);}void f.offsetWidth;f.classList.add("show");}
+function flash(text,sub,kind){lastFlash={id:Date.now()+Math.random(),text,sub,kind};showFlash(text,sub,kind);}
+function showFlash(text,sub,kind){const f=$("flash");f.className="flash "+kind;f.innerHTML="";const a=document.createElement("div");a.textContent=text;f.appendChild(a);if(sub){const b=document.createElement("div");b.className="flash-sub";b.textContent=sub;f.appendChild(b);}void f.offsetWidth;f.classList.add("show");}
 function stopTimerMusic(){musicNodes.forEach(n=>{try{n.stop();}catch(e){}});musicNodes=[];}
 function startTimerMusic(){
  if(!soundsOn)return;
@@ -527,7 +592,7 @@ function clearChoiceSelection(targetId="choices"){
 function renderChoices(q,targetId="choices"){
  const box=$(targetId);box.innerHTML="";box.classList.remove("locked");
  q.options.forEach((opt,i)=>{
-  const el=document.createElement("div");el.className="choice";el.setAttribute("role","button");el.tabIndex=0;
+  const el=document.createElement("div");el.className="choice";el.dataset.text=opt;el.setAttribute("role","button");el.tabIndex=0;
   const l=document.createElement("span");l.className="letter";l.textContent=letter(i)+".";
   el.append(l,document.createTextNode(opt));
   el.onclick=()=>selectChoice(i,targetId,q);
@@ -701,7 +766,7 @@ function saveGame(){
  else if(state==="spinning"||state==="question"||state==="steal")team=turnOwner;
  else if(isFinalState())team=finalStarter;
  const st=state==="done"?"done":q>=gameQs.length?"final-ready":"ready";
- try{localStorage.setItem(SAVE_KEY,JSON.stringify({names:teamNames,order:gameOrder,scores,qIndex:q,currentTeam:team,state:st,autoRead,soundsOn,seed:shuffleSeed,finalIdx}));}catch(e){}
+ try{localStorage.setItem(SAVE_KEY,JSON.stringify({names:teamNames,order:gameOrder,scores,qIndex:q,currentTeam:team,state:st,autoRead,soundsOn,seed:shuffleSeed,finalIdx,liveCode:mode==="host"?liveCode:""}));}catch(e){}
 }
 function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 function loadSave(){
@@ -753,6 +818,8 @@ function startNewGame(){
  do{finalIdx=Math.floor(Math.random()*FINALS.length);}while(FINALS.length>1&&finalIdx===lastFinal);
  try{localStorage.setItem("gynWheelLastFinal",finalIdx);}catch(e){}
  applyGame({scores:[0,0],qIndex:0,currentTeam:0,state:"ready"});
+ if(document.querySelector('input[name="mode"]:checked').value==="host")startHostLink(newCode());
+ else{mode="solo";$("hostPanel").hidden=true;if(link){link.close();link=null;}}
  setMessage(`${tn(0)} begins the game.`);
  speak(`Welcome to Spin the Speculum! ${tn(0)}, you're up first. Spin the wheel!`);
 }
@@ -762,8 +829,142 @@ function resumeGame(){
  shuffleSeed=Number.isInteger(g.seed)?g.seed:1;finalIdx=Number.isInteger(g.finalIdx)&&g.finalIdx>=0&&g.finalIdx<FINALS.length?g.finalIdx:0;
  autoRead=g.autoRead!==false;soundsOn=g.soundsOn!==false;syncToggleLabels();
  applyGame(g);
+ if(typeof g.liveCode==="string"&&/^[A-Z0-9]{4}$/.test(g.liveCode))startHostLink(g.liveCode);
  const msg=state==="final-ready"?`Welcome back! ${tn(currentTeam)} is up for the Final Jackpot. Press OPEN FINAL JACKPOT.`:`Welcome back! ${scoreUpdateText()} ${tn(currentTeam)}, spin the wheel!`;
  setMessage(msg);speak(msg);
+}
+
+/* ---------- Big screen + team computers ----------
+   The big screen (host) runs the whole game. Team computers only send "spin", "select" and "submit",
+   and the host accepts them only from the team whose turn it is. Messages travel over a Supabase
+   Realtime broadcast channel named after the game code; nothing is stored. */
+const LIVE_URL="https://mxcwtyubndlsudejizld.supabase.co";
+const LIVE_KEY="sb_publishable_A6TUvmSXjKGTrxZMI3YyrQ_vim_9pbr";
+const CODE_CHARS="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+let mode="solo",liveCode="",link=null,syncTimer=null,lastFlash={id:0},remoteSeen=[0,0],myTeam=0,remoteSnap=null,remoteFlashId=0,remoteHelloTimer=null,hostBeatTimer=null;
+function newCode(){let c="";for(let i=0;i<4;i++)c+=CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)];return c;}
+function loadLiveLibrary(){
+ if(window.supabase&&window.supabase.createClient)return Promise.resolve();
+ return new Promise((ok,fail)=>{const sc=document.createElement("script");sc.src="vendor/supabase-2.117.3.js";sc.onload=()=>ok();sc.onerror=()=>fail(new Error("library"));document.head.appendChild(sc);});
+}
+async function openLink(code,onMsg,onStatus){
+ if(window.SPEC_TEST_LINK)return window.SPEC_TEST_LINK(code,onMsg,onStatus); // used by automated tests
+ await loadLiveLibrary();
+ const client=window.supabase.createClient(LIVE_URL,LIVE_KEY,{auth:{persistSession:false,autoRefreshToken:false},realtime:{params:{eventsPerSecond:20}}});
+ const ch=client.channel("speculum-"+code,{config:{broadcast:{self:false,ack:false}}});
+ ch.on("broadcast",{event:"m"},({payload})=>onMsg(payload));
+ ch.subscribe(st=>onStatus(st));
+ return {send:p=>{try{ch.send({type:"broadcast",event:"m",payload:p});}catch(e){}},close:()=>{try{client.removeChannel(ch);}catch(e){}}};
+}
+function linkStatusText(st){return st==="SUBSCRIBED"?"✓ Connected":st==="CLOSED"?"Disconnected":"Reconnecting…";}
+
+/* ----- host (big screen) ----- */
+async function startHostLink(code){
+ mode="host";liveCode=code;$("hostCode").textContent=code;$("hostPanel").hidden=false;remoteSeen=[0,0];renderPresence();
+ if(link)link.close();
+ $("linkStatus").textContent="Connecting…";$("linkStatus").className="pres warn";
+ try{
+  link=await openLink(code,onRemoteMessage,st=>{$("linkStatus").textContent=linkStatusText(st);$("linkStatus").className="pres "+(st==="SUBSCRIBED"?"on":"warn");if(st==="SUBSCRIBED"){link&&link.send({kind:"who"});syncRemotes(true);}});
+ }catch(e){$("linkStatus").textContent="⚠ Can't connect. Check the internet connection.";$("linkStatus").className="pres warn";return;}
+ clearInterval(hostBeatTimer);hostBeatTimer=setInterval(()=>{renderPresence();syncRemotes(true);},3000);
+ if(!window.__specObserver){window.__specObserver=new MutationObserver(()=>syncRemotes());window.__specObserver.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["class","style"]});}
+ syncRemotes(true);
+}
+function renderPresence(){
+ [0,1].forEach(t=>{const on=Date.now()-remoteSeen[t]<12000,el=$("pres"+t);el.textContent=`${t?"☀️":"🐶"} ${tn(t)}: ${on?"connected ✓":"waiting…"}`;el.className="pres"+(on?" on":"");});
+}
+function onRemoteMessage(m){
+ if(mode!=="host"||!m||typeof m!=="object")return;
+ const team=m.team===0||m.team===1?m.team:-1;if(team<0)return;
+ if(m.kind==="hello"){remoteSeen[team]=Date.now();renderPresence();syncRemotes(true);return;}
+ if(m.kind!=="act"||paused||team!==currentTeam)return;
+ if(m.act==="spin"&&state==="ready")spinWheel();
+ else if(m.act==="select"&&isAnswering()){const fin=isFinalState(),q=fin?FINAL:gameQs[qIndex];if(Number.isInteger(m.i)&&m.i>=0&&m.i<q.options.length)selectChoice(m.i,fin?"finalChoices":"choices",q);}
+ else if(m.act==="submit"&&isAnswering())submitAnswer();
+}
+function hostSnapshot(){
+ const finalOpen=$("finalModal").style.display==="flex",box=$(finalOpen?"finalChoices":"choices");
+ const t=$(finalOpen?"finalTimer":"timer");
+ return {kind:"state",state,team:currentTeam,names:teamNames,scores,paused,
+  banner:$("turnBanner").textContent,message:$("message").textContent,
+  count:$("count").textContent,value:finalOpen?`${FINAL_POINTS} points`:$("value").textContent,
+  timer:t.textContent,timerClass:t.className.replace("timer","").trim(),
+  qnum:finalOpen?$("finalHeading").textContent:$("qnum").textContent,
+  qtext:finalOpen?$("finalText").textContent:$("qtext").textContent,
+  hint:finalOpen?"":$("typeHint").textContent,wheel:$("wheelResult").textContent,
+  locked:box.classList.contains("locked"),
+  choices:[...box.querySelectorAll(".choice")].map(el=>({t:el.dataset.text||"",s:el.classList.contains("selected"),c:el.classList.contains("correct"),w:el.classList.contains("wrong")})),
+  flash:lastFlash};
+}
+function syncRemotes(now){
+ if(mode!=="host"||!link||!gameStarted)return;
+ if(now){clearTimeout(syncTimer);syncTimer=null;link.send(hostSnapshot());return;}
+ if(syncTimer)return;
+ syncTimer=setTimeout(()=>{syncTimer=null;link.send(hostSnapshot());},80);
+}
+
+/* ----- team computer ----- */
+function setupMode(){
+ const m=document.querySelector('input[name="mode"]:checked').value;
+ $("joinFields").hidden=m!=="join";$("hostFields").hidden=m==="join";$("hostHint").hidden=m!=="host";
+ if(m==="join")setTimeout(()=>$("joinCode").focus(),50);
+}
+async function joinGame(team){
+ const code=$("joinCode").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+ if(code.length!==4){$("joinMsg").textContent="Enter the 4-character game code shown on the big screen.";return;}
+ try{sessionStorage.setItem("specRemote",JSON.stringify({code,team}));}catch(e){}
+ await startRemote(code,team);
+}
+async function startRemote(code,team){
+ mode="remote";myTeam=team;liveCode=code;remoteSnap=null;
+ // Team computers stay silent; all sound plays on the big screen.
+ autoRead=false;soundsOn=false;silenceSpeech();stopTimerMusic();
+ $("setupModal").style.display="none";document.querySelector("header").hidden=true;document.querySelector("main").hidden=true;$("remote").hidden=false;
+ $("rTeam").textContent=`${team?"☀️ Even":"🐶 Odd"} numbers team · Game ${code}`;$("rConn").textContent="Connecting…";
+ if(link)link.close();
+ try{
+  link=await openLink(code,onHostMessage,st=>{$("rConn").textContent=linkStatusText(st);if(st==="SUBSCRIBED")link.send({kind:"hello",team:myTeam});});
+ }catch(e){$("rConn").textContent="⚠ Can't connect";$("rWait").textContent="Check the internet connection, then reload the page.";return;}
+ clearInterval(remoteHelloTimer);remoteHelloTimer=setInterval(()=>{if(link)link.send({kind:"hello",team:myTeam});if(remoteSnap&&Date.now()-remoteSnap.at>10000)$("rWait").textContent="Lost contact with the big screen. Check that it's still open with the same game code.";},4000);
+ $("rSpin").onclick=()=>sendAct({act:"spin"});
+ $("rSubmit").onclick=()=>sendAct({act:"submit"});
+}
+function sendAct(a){if(link)link.send({kind:"act",team:myTeam,...a});}
+function leaveGame(){try{sessionStorage.removeItem("specRemote");}catch(e){}if(link)link.close();location.href=location.pathname;}
+function onHostMessage(m){
+ if(mode!=="remote"||!m)return;
+ if(m.kind==="who"){if(link)link.send({kind:"hello",team:myTeam});return;}
+ if(m.kind!=="state")return;
+ m.at=Date.now();remoteSnap=m;renderRemote(m);
+}
+function renderRemote(m){
+ const mine=m.team===myTeam,answering=["question","steal","final","final-steal"].includes(m.state)&&!m.paused,canAnswer=mine&&answering&&!m.locked;
+ if(m.names){teamNames=m.names;$("rName0").textContent="🐶 "+m.names[0];$("rName1").textContent="☀️ "+m.names[1];$("rTeam").textContent=`${myTeam?"☀️":"🐶"} ${m.names[myTeam]} · Game ${liveCode}`;}
+ $("rScore0").textContent=m.scores[0];$("rScore1").textContent=m.scores[1];
+ const b=$("rBanner");b.textContent=m.paused?"PAUSED":m.banner;b.className="banner "+(m.team===0?"team1":"team2");
+ $("rMessage").textContent=m.message;$("rCount").textContent=m.count;$("rValue").textContent=m.value;
+ const tm=$("rTimer");tm.textContent=answering?m.timer:"";tm.className="timer "+(m.timerClass||"");
+ $("rQnum").textContent=m.qnum;markSata($("rQtext"),m.qtext||"");markSata($("rHint"),m.hint||"");
+ const box=$("rChoices");box.classList.toggle("active",canAnswer);box.classList.toggle("locked",!canAnswer);
+ if(box.children.length!==m.choices.length||[...box.children].some((el,i)=>el.dataset.text!==m.choices[i].t)){
+  box.innerHTML="";m.choices.forEach((c,i)=>{const el=document.createElement("div");el.className="choice";el.dataset.text=c.t;el.setAttribute("role","button");el.tabIndex=0;
+   const l=document.createElement("span");l.className="letter";l.textContent=letter(i)+".";el.append(l,document.createTextNode(c.t));
+   const go=()=>{if(remoteSnap&&remoteSnap.team===myTeam&&box.classList.contains("active"))sendAct({act:"select",i});};
+   el.onclick=go;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go();}};box.appendChild(el);});
+ }
+ [...box.children].forEach((el,i)=>{const c=m.choices[i];el.classList.toggle("selected",c.s);el.classList.toggle("correct",c.c);el.classList.toggle("wrong",c.w);});
+ $("rSpin").hidden=!(mine&&m.state==="ready"&&!m.paused);
+ $("rSubmit").hidden=!canAnswer;
+ let wait="";
+ if(m.paused)wait="The game is paused.";
+ else if(m.state==="ready")wait=mine?"Your turn! Press SPIN THE WHEEL.":`Waiting for ${m.names[m.team]} to spin…`;
+ else if(m.state==="spinning")wait="The wheel is spinning…";
+ else if(answering)wait=mine?"Your turn! Tap your answer, then press SUBMIT ANSWER.":`${m.names[m.team]} is answering. Get ready in case there's a steal!`;
+ else if(m.state==="final-ready")wait="The Final Jackpot is coming up on the big screen.";
+ else if(m.state==="done")wait="Game over! Look at the big screen.";
+ else wait="Watch the big screen.";
+ $("rWait").textContent=wait;
+ if(m.flash&&m.flash.id&&m.flash.id!==remoteFlashId){remoteFlashId=m.flash.id;if(Date.now()-(m.flash.at||0)<4000||!m.flash.at)showFlash(m.flash.text,m.flash.sub,m.flash.kind);}
 }
 
 /* ---------- Final jackpot ---------- */
@@ -820,5 +1021,10 @@ $("topicsOption").value=TEST_TOPICS.length;$("topicsOption").textContent=`Every 
 $("allOption").textContent=`Full review: all ${QUESTIONS.length} questions (several class periods)`;
 if(!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen))$("fsBtn").style.display="none";
 updateTeams();showTime();showSetup();
+(()=>{let saved=null;try{saved=JSON.parse(sessionStorage.getItem("specRemote"));}catch(e){}
+ const q=new URLSearchParams(location.search).get("join");
+ if(saved&&/^[A-Z0-9]{4}$/.test(saved.code)&&(saved.team===0||saved.team===1)&&(!q||q.toUpperCase()===saved.code)){startRemote(saved.code,saved.team);return;}
+ if(q){document.querySelector('input[name="mode"][value="join"]').checked=true;$("joinCode").value=q.toUpperCase().slice(0,4);setupMode();}
+})();
 </script>
 </body></html>
