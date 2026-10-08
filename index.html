@@ -117,6 +117,7 @@ select option{background:#0f1c5e;color:#fff}
 .alert{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;font-weight:700;font-size:15px;box-shadow:0 12px 30px rgba(0,0,0,.45);text-align:left}
 .alert.bad{background:#7f1d1d;border:2px solid #ef4444;color:#fff}
 .alert.ok{background:#0b3d2c;border:2px solid var(--green);color:#dfffee}
+.alert .alertact{margin:8px 0 0;padding:6px 12px;border-radius:10px;background:#fff;color:#7f1d1d;font-size:14px;font-weight:800}
 .alert button{margin-left:auto;background:none;border:none;color:inherit;font-size:18px;padding:0 4px;line-height:1}
 .pres.away{border-color:#ef4444;background:rgba(239,68,68,.25);color:#fff;animation:pausePulse 1s ease-in-out infinite alternate}
 .awaynotice{position:fixed;inset:0;z-index:90;background:rgba(127,29,29,.94);display:flex;align-items:center;justify-content:center;padding:16px;text-align:center}
@@ -253,6 +254,10 @@ select option{background:#0f1c5e;color:#fff}
 <div id="leaveAsk" class="awaynotice leaveask" hidden role="alertdialog" aria-labelledby="leaveTitle">
 <div class="awaybox"><div class="awayicon">🚪</div><h2 id="leaveTitle">Leave the game?</h2><p>Are you sure? Your instructor will be notified, and the game will pause until your team signs back in with the game code.</p>
 <div class="controls"><button class="yes" type="button" onclick="$('leaveAsk').hidden=true">STAY IN THE GAME</button><button class="secondary" type="button" onclick="leaveGame()">Yes, leave</button></div></div>
+</div>
+
+<div id="blockedNotice" class="awaynotice" hidden role="alertdialog" aria-labelledby="blockedTitle">
+<div class="awaybox"><div class="awayicon">🔒</div><h2 id="blockedTitle">Team already playing</h2><p id="blockedText">This team is already playing on another computer. Ask your instructor if you need to switch computers.</p><button class="secondary" type="button" onclick="exitBlocked()">Back to sign-in</button></div>
 </div>
 
 <div id="awayNotice" class="awaynotice" hidden role="alertdialog" aria-labelledby="awayTitle">
@@ -850,7 +855,7 @@ function saveGame(){
  else if(state==="spinning"||state==="question"||state==="steal")team=turnOwner;
  else if(isFinalState())team=finalStarter;
  const st=state==="done"?"done":q>=gameQs.length?"final-ready":"ready";
- try{localStorage.setItem(SAVE_KEY,JSON.stringify({names:teamNames,order:gameOrder,scores,qIndex:q,currentTeam:team,state:st,autoRead,soundsOn,seed:shuffleSeed,finalIdx,liveCode:mode==="host"?liveCode:""}));}catch(e){}
+ try{localStorage.setItem(SAVE_KEY,JSON.stringify({names:teamNames,order:gameOrder,scores,qIndex:q,currentTeam:team,state:st,autoRead,soundsOn,seed:shuffleSeed,finalIdx,liveCode:mode==="host"?liveCode:"",owners:mode==="host"?teamOwner:null}));}catch(e){}
 }
 function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 function loadSave(){
@@ -904,7 +909,7 @@ function startNewGame(){
  do{finalIdx=Math.floor(Math.random()*FINALS.length);}while(FINALS.length>1&&finalIdx===lastFinal);
  try{localStorage.setItem("gynWheelLastFinal",finalIdx);}catch(e){}
  applyGame({scores:[0,0],qIndex:0,currentTeam:0,state:"ready"});
- if(document.querySelector('input[name="mode"]:checked').value==="host"){startHostLink(newCode());openLobby(false);return;}
+ if(document.querySelector('input[name="mode"]:checked').value==="host"){teamOwner=[null,null];blockedSeen=new Set();startHostLink(newCode());openLobby(false);return;}
  mode="solo";$("hostPanel").hidden=true;if(link){link.close();link=null;}
  setMessage(`${tn(0)} begins the game.`);
  speak(`Welcome to Spin the Speculum! Today, two teams battle for the Golden Speculum. ${tn(0)}, you're up first. Spin the wheel!`);
@@ -916,7 +921,7 @@ function resumeGame(){
  shuffleSeed=Number.isInteger(g.seed)?g.seed:1;finalIdx=Number.isInteger(g.finalIdx)&&g.finalIdx>=0&&g.finalIdx<FINALS.length?g.finalIdx:0;
  autoRead=g.autoRead!==false;soundsOn=g.soundsOn!==false;syncToggleLabels();
  applyGame(g);
- if(typeof g.liveCode==="string"&&/^[A-Z0-9]{4}$/.test(g.liveCode)){startHostLink(g.liveCode);openLobby(true);return;}
+ if(typeof g.liveCode==="string"&&/^[A-Z0-9]{4}$/.test(g.liveCode)){teamOwner=Array.isArray(g.owners)&&g.owners.length===2?g.owners.map(o=>typeof o==="string"?o:null):[null,null];blockedSeen=new Set();startHostLink(g.liveCode);openLobby(true);return;}
  const msg=state==="final-ready"?`Welcome back! ${tn(currentTeam)} is up for the Final Jackpot. Press OPEN FINAL JACKPOT.`:`Welcome back! ${scoreUpdateText()} ${tn(currentTeam)}, spin the wheel!`;
  setMessage(msg);speak(msg);
 }
@@ -928,6 +933,8 @@ function resumeGame(){
 const LIVE_URL="https://mxcwtyubndlsudejizld.supabase.co";
 const LIVE_KEY="sb_publishable_A6TUvmSXjKGTrxZMI3YyrQ_vim_9pbr";
 const CODE_CHARS="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+// Each computer keeps one ID, so a team's seat belongs to the first computer that joins it.
+let DEVICE=window.SPEC_DEVICE||"";if(!DEVICE){try{DEVICE=localStorage.getItem("specDevice")||"";if(!DEVICE){DEVICE=Math.random().toString(36).slice(2,12);localStorage.setItem("specDevice",DEVICE);}}catch(e){DEVICE=Math.random().toString(36).slice(2,12);}}
 const HOST_SESSION=Math.random().toString(36).slice(2,10);let snapSeq=0,lastHostSession="",lastSeq=-1;
 let mode="solo",liveCode="",link=null,syncTimer=null,lastFlash={id:0},remoteSeen=[0,0],myTeam=0,remoteSnap=null,remoteFlashId=0,remoteHelloTimer=null,hostBeatTimer=null;
 // A fresh code for every game; recently used codes on this computer are never reused.
@@ -998,13 +1005,26 @@ function renderPresence(){
   el.textContent=teamAway[t]?`${t?"☀️":"🐶"} ${tn(t)}: ⚠ LEFT THE GAME`:`${t?"☀️":"🐶"} ${tn(t)}: ${on?"connected ✓":"waiting…"}${left}`;
   el.className="pres"+(teamAway[t]?" away":on?" on":"");});
 }
-function hostAlert(text,kind){
+function hostAlert(text,kind,action){
  const box=$("hostAlerts"),a=document.createElement("div");a.className="alert "+kind;
  const t=document.createElement("span");t.textContent=text;const x=document.createElement("button");x.type="button";x.setAttribute("aria-label","Dismiss");x.textContent="×";x.onclick=()=>a.remove();
+ if(action){const go=document.createElement("button");go.type="button";go.className="alertact";go.textContent=action.label;go.onclick=()=>{a.remove();action.run();};t.appendChild(document.createElement("br"));t.appendChild(go);}
  a.append(t,x);box.prepend(a);while(box.children.length>4)box.lastChild.remove();
  if(kind==="ok")setTimeout(()=>a.remove(),8000);
 }
-let leftTeams=new Set();
+let leftTeams=new Set(),teamOwner=[null,null],blockedSeen=new Set();
+// One computer per team: the first computer to join owns the seat; others are blocked until the instructor lets them in.
+function seatOK(t,dev){
+ if(!dev)return true;
+ if(teamOwner[t]===null){teamOwner[t]=dev;saveGame();return true;}
+ if(teamOwner[t]===dev)return true;
+ if(link)link.send({kind:"reject",team:t,dev});
+ const key=t+":"+dev;
+ if(!blockedSeen.has(key)){blockedSeen.add(key);
+  hostAlert(`⚠ Another computer tried to join as ${teamLabel(t)} and was blocked.`,"bad",{label:"Let it in instead",run:()=>{teamOwner[t]=dev;blockedSeen.delete(key);saveGame();if(link)link.send({kind:"admit",team:t,dev});hostAlert(`✓ ${teamLabel(t)} is now playing on the new computer.`,"ok");}});
+  sfx((ac,s)=>{osc(ac,"square",880,s,.1,.1);osc(ac,"square",660,s+.15,.15,.1);});}
+ return false;
+}
 function handleLeave(t){
  remoteSeen[t]=0;teamAway[t]=false;renderPresence();
  if(state==="lobby"||state==="done")return;
@@ -1024,6 +1044,8 @@ function handleAway(t,m){
 function onRemoteMessage(m){
  if(mode!=="host"||!m||typeof m!=="object")return;
  const team=m.team===0||m.team===1?m.team:-1;if(team<0)return;
+ if(!seatOK(team,m.dev))return;
+ if(m.kind==="leave"){handleLeave(team);teamOwner[team]=null;saveGame();return;}
  if(m.kind==="leave"){handleLeave(team);return;}
  if(m.kind==="hello"&&leftTeams.has(team)){leftTeams.delete(team);hostAlert(`✓ ${teamLabel(team)} signed back in.`,"ok");if(paused&&pauseReason==="left"&&!leftTeams.size){togglePause();speak(`${tn(team)} is back. Let's keep going!`);}}
  if(m.kind==="hello"){remoteSeen[team]=Date.now();if(typeof m.away==="boolean"&&m.away!==teamAway[team]){teamAway[team]=m.away;}renderPresence();syncRemotes(true);return;}
@@ -1088,9 +1110,9 @@ async function startRemote(code,team){
  $("rTeam").textContent=`${team?"☀️ Team 2":"🐶 Team 1"} · Game ${code}`;$("rConn").textContent="Connecting…";
  if(link)link.close();
  try{
-  link=await openLink(code,onHostMessage,st=>{$("rConn").textContent=linkStatusText(st);if(st==="SUBSCRIBED")setTimeout(()=>{if(link)link.send({kind:"hello",team:myTeam,away:awayState});},0);});
+  link=await openLink(code,onHostMessage,st=>{$("rConn").textContent=linkStatusText(st);if(st==="SUBSCRIBED")setTimeout(()=>{if(link)link.send({kind:"hello",team:myTeam,away:awayState,dev:DEVICE});},0);});
  }catch(e){$("rConn").textContent="⚠ Can't connect";$("rWait").textContent="Check the internet connection, then reload the page.";return;}
- clearInterval(remoteHelloTimer);remoteHelloTimer=setInterval(()=>{if(link)link.send({kind:"hello",team:myTeam,away:awayState});if(remoteSnap&&Date.now()-remoteSnap.at>10000)$("rWait").textContent="Lost contact with the big screen. Check that it's still open with the same game code.";},4000);
+ clearInterval(remoteHelloTimer);remoteHelloTimer=setInterval(()=>{if(link)link.send({kind:"hello",team:myTeam,away:awayState,dev:DEVICE});if(remoteSnap&&Date.now()-remoteSnap.at>10000)$("rWait").textContent="Lost contact with the big screen. Check that it's still open with the same game code.";},4000);
  startFocusWatch();
  $("rSpin").onclick=()=>sendAct({act:"spin"});
  $("rSubmit").onclick=()=>sendAct({act:"submit"});
@@ -1099,10 +1121,10 @@ async function startRemote(code,team){
 let awayState=false,awaySince=0,focusWatchOn=false;
 function enterFullscreen(){const el=document.documentElement;try{const r=(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);if(r&&r.catch)r.catch(()=>{});}catch(e){}}
 function reportAway(away,reason){
- if(mode!=="remote"||away===awayState)return;
+ if(mode!=="remote"||seatBlocked||away===awayState)return;
  awayState=away;
- if(away){awaySince=Date.now();if(link)link.send({kind:"away",team:myTeam,away:true,reason});}
- else{const secs=Math.round((Date.now()-awaySince)/1000);if(link)link.send({kind:"away",team:myTeam,away:false,secs});
+ if(away){awaySince=Date.now();if(link)link.send({kind:"away",team:myTeam,away:true,reason,dev:DEVICE});}
+ else{const secs=Math.round((Date.now()-awaySince)/1000);if(link)link.send({kind:"away",team:myTeam,away:false,secs,dev:DEVICE});
   $("awayText").textContent=`You were away for ${secs} second${secs===1?"":"s"}. Your instructor was notified.`;$("awayNotice").hidden=false;}
 }
 function checkFocus(){
@@ -1121,12 +1143,16 @@ function startFocusWatch(){
  ["copy","cut","contextmenu"].forEach(ev=>document.addEventListener(ev,e=>{if(mode==="remote")e.preventDefault();}));
 }
 function backToGame(){$("awayNotice").hidden=true;enterFullscreen();if(document.hasFocus()&&document.visibilityState==="visible"&&awayState)reportAway(false);}
-function sendAct(a){if(link)link.send({kind:"act",team:myTeam,...a});}
+function sendAct(a){if(link)link.send({kind:"act",team:myTeam,...a,dev:DEVICE});}
+let seatBlocked=false;
+function exitBlocked(){clearInterval(remoteHelloTimer);try{sessionStorage.removeItem("specRemote");}catch(e){}const l=link;link=null;mode="solo";if(l)l.close();location.href=location.pathname;}
 function askLeave(){$("leaveAsk").hidden=false;}
-function leaveGame(){$("leaveAsk").hidden=true;if(link)link.send({kind:"leave",team:myTeam});try{sessionStorage.removeItem("specRemote");}catch(e){}setTimeout(()=>{clearInterval(remoteHelloTimer);const l=link;link=null;mode="solo";if(l)l.close();location.href=location.pathname;},400);}
+function leaveGame(){$("leaveAsk").hidden=true;if(link)link.send({kind:"leave",team:myTeam,dev:DEVICE});try{sessionStorage.removeItem("specRemote");}catch(e){}setTimeout(()=>{clearInterval(remoteHelloTimer);const l=link;link=null;mode="solo";if(l)l.close();location.href=location.pathname;},400);}
 function onHostMessage(m){
  if(mode!=="remote"||!m)return;
- if(m.kind==="who"){if(link)link.send({kind:"hello",team:myTeam,away:awayState});return;}
+ if(m.kind==="reject"&&m.dev===DEVICE&&m.team===myTeam){seatBlocked=true;$("blockedNotice").hidden=false;$("awayNotice").hidden=true;return;}
+ if(m.kind==="admit"&&m.dev===DEVICE&&m.team===myTeam){seatBlocked=false;$("blockedNotice").hidden=true;if(link)link.send({kind:"hello",team:myTeam,away:awayState,dev:DEVICE});return;}
+ if(m.kind==="who"){if(link)link.send({kind:"hello",team:myTeam,away:awayState,dev:DEVICE});return;}
  if(m.kind!=="state")return;
  if(m.hid===lastHostSession&&typeof m.seq==="number"&&m.seq<=lastSeq)return; // an older update arrived late
  lastHostSession=m.hid;lastSeq=m.seq;
