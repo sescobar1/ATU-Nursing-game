@@ -928,6 +928,7 @@ function resumeGame(){
 const LIVE_URL="https://mxcwtyubndlsudejizld.supabase.co";
 const LIVE_KEY="sb_publishable_A6TUvmSXjKGTrxZMI3YyrQ_vim_9pbr";
 const CODE_CHARS="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const HOST_SESSION=Math.random().toString(36).slice(2,10);let snapSeq=0,lastHostSession="",lastSeq=-1;
 let mode="solo",liveCode="",link=null,syncTimer=null,lastFlash={id:0},remoteSeen=[0,0],myTeam=0,remoteSnap=null,remoteFlashId=0,remoteHelloTimer=null,hostBeatTimer=null;
 // A fresh code for every game; recently used codes on this computer are never reused.
 function newCode(){
@@ -958,7 +959,7 @@ async function startHostLink(code){
  if(link)link.close();
  $("linkStatus").textContent="Connecting…";$("linkStatus").className="pres warn";
  try{
-  link=await openLink(code,onRemoteMessage,st=>{$("linkStatus").textContent=linkStatusText(st);$("linkStatus").className="pres "+(st==="SUBSCRIBED"?"on":"warn");if(st==="SUBSCRIBED"){link&&link.send({kind:"who"});syncRemotes(true);}});
+  link=await openLink(code,onRemoteMessage,st=>{$("linkStatus").textContent=linkStatusText(st);$("linkStatus").className="pres "+(st==="SUBSCRIBED"?"on":"warn");if(st==="SUBSCRIBED")setTimeout(()=>{if(link)link.send({kind:"who"});syncRemotes(true);},0);});
  }catch(e){$("linkStatus").textContent="⚠ Can't connect. Check the internet connection.";$("linkStatus").className="pres warn";return;}
  clearInterval(hostBeatTimer);hostBeatTimer=setInterval(()=>{renderPresence();syncRemotes(true);},3000);
  if(!window.__specObserver){window.__specObserver=new MutationObserver(()=>syncRemotes());window.__specObserver.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["class","style"]});}
@@ -1035,7 +1036,7 @@ function onRemoteMessage(m){
 function hostSnapshot(){
  const finalOpen=$("finalModal").style.display==="flex",box=$(finalOpen?"finalChoices":"choices");
  const t=$(finalOpen?"finalTimer":"timer");
- return {kind:"state",state,team:currentTeam,names:teamNames,scores,paused,
+ return {kind:"state",hid:HOST_SESSION,seq:++snapSeq,state,team:currentTeam,names:teamNames,scores,paused,
   banner:$("turnBanner").textContent,message:$("message").textContent,
   count:$("count").textContent,value:finalOpen?`${FINAL_POINTS} points`:$("value").textContent,
   timer:t.textContent,timerClass:t.className.replace("timer","").trim(),
@@ -1050,7 +1051,7 @@ function syncRemotes(now){
  if(mode!=="host"||!link||!gameStarted)return;
  if(now){clearTimeout(syncTimer);syncTimer=null;link.send(hostSnapshot());return;}
  if(syncTimer)return;
- syncTimer=setTimeout(()=>{syncTimer=null;link.send(hostSnapshot());},80);
+ syncTimer=setTimeout(()=>{syncTimer=null;if(link&&mode==="host")link.send(hostSnapshot());},80);
 }
 
 /* ----- team computer ----- */
@@ -1087,7 +1088,7 @@ async function startRemote(code,team){
  $("rTeam").textContent=`${team?"☀️ Team 2":"🐶 Team 1"} · Game ${code}`;$("rConn").textContent="Connecting…";
  if(link)link.close();
  try{
-  link=await openLink(code,onHostMessage,st=>{$("rConn").textContent=linkStatusText(st);if(st==="SUBSCRIBED")link.send({kind:"hello",team:myTeam,away:awayState});});
+  link=await openLink(code,onHostMessage,st=>{$("rConn").textContent=linkStatusText(st);if(st==="SUBSCRIBED")setTimeout(()=>{if(link)link.send({kind:"hello",team:myTeam,away:awayState});},0);});
  }catch(e){$("rConn").textContent="⚠ Can't connect";$("rWait").textContent="Check the internet connection, then reload the page.";return;}
  clearInterval(remoteHelloTimer);remoteHelloTimer=setInterval(()=>{if(link)link.send({kind:"hello",team:myTeam,away:awayState});if(remoteSnap&&Date.now()-remoteSnap.at>10000)$("rWait").textContent="Lost contact with the big screen. Check that it's still open with the same game code.";},4000);
  startFocusWatch();
@@ -1127,6 +1128,8 @@ function onHostMessage(m){
  if(mode!=="remote"||!m)return;
  if(m.kind==="who"){if(link)link.send({kind:"hello",team:myTeam,away:awayState});return;}
  if(m.kind!=="state")return;
+ if(m.hid===lastHostSession&&typeof m.seq==="number"&&m.seq<=lastSeq)return; // an older update arrived late
+ lastHostSession=m.hid;lastSeq=m.seq;
  m.at=Date.now();remoteSnap=m;renderRemote(m);
 }
 function renderRemote(m){
